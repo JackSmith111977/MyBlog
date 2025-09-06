@@ -2,6 +2,7 @@
 title: Java笔记(持续更新...)
 date: 2025-09-03 21:45:00
 tags: Java
+cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/115945063_p0-cut.jpg
 ---
 
 
@@ -21,6 +22,7 @@ tags: Java
 > [内部类](#内部类)
 > [函数式编程](#函数式编程)
 > [常用API](#常用api)
+> [GUI编程](#gui编程)
 
 
 ---
@@ -527,6 +529,53 @@ class Car{
 |`E remove(int index)`|删除指定索引处的元素，返回删除的元素|
 |`boolean remove(Object o)`|删除指定元素，返回是否删除成功|
 |`E set(int index, E element)`|修改指定索引处的元素，返回修改前的元素|
+
+
+
+## *GUI编程
+> 目前项目开发几乎不使用Java来开发GUI界面，仅了解
+
+[返回目录](#目录)
+
+### 常见的Swing组件
+|组件|作用|
+| --- | --- |
+|[JFrame](#jframe)|窗口|
+|[JPanel](#jpanel)|面板，用于组织其他组件的容器|
+|[JButton](#jbutton)|按钮|
+|JTextField|文本输入框|
+|JTable|表格|
+
+### JFrame
+|API|作用|value|
+| --- | --- | --- |
+|`void setSize(int width, int height)`|设置窗口大小|
+|`void setLocationRelativeTo(Component c)`|设置窗口位置|
+|`void setDefaultCloseOperation(int operation)`|设置关闭方式|`JFrame.EXIT_ON_CLOSE` 关闭窗口时退出程序|
+|`void setVisible(boolean b)`|设置窗口是否可见|
+|`void add(Component c)`|添加组件|
+
+### JPanel
+[back to GUI编程](#gui编程)
+|API|作用|value|
+| --- | --- | --- |
+|`void add(Component c)`|添加组件|
+
+### JButton
+[back to GUI编程](#gui编程)
+|API|作用|value|
+| --- | --- | --- |
+|`void setText(String text)`|设置按钮文本|
+
+### Layout Manager
+[back to GUI编程](#gui编程)
+|Layout Manager|作用|
+| --- | --- |
+|`BorderLayout`|边界布局，将容器分成5个区域，North、South、East、West、Center，每个区域只有一个组件|
+|`FlowLayout`|流式布局，组件排满一行自动换行|
+|`GridLayout`|网格布局，组件会自动填充|
+|`GridBagLayout`|网格布局，组件会自动填充|
+
 
 
 
