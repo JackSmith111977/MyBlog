@@ -2,14 +2,11 @@
 title: Java笔记(持续更新...)
 date: 2025-09-03 21:45:00
 tags: Java
-<<<<<<< HEAD
 cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/115945063_p0-cut.jpg
-=======
->>>>>>> 4b835ab78af893f5568f6226dfb299a73c0dd1ff
 ---
 
 
-# Java知识点
+# Java 笔记
 ---
 ## 目录
 
