@@ -1344,3 +1344,31 @@ pre .javascript .function {
   margin-right: 5px;
   display: inline-block;
 }
+
+/* 为所有文章中的表格添加横向滚动 */
+.post-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 1em 0;
+  white-space: nowrap;
+}
+
+.post-content table th,
+.post-content table td {
+  padding: 8px 12px;
+  text-align: left;
+}
+
+/* 响应式优化 */
+@media screen and (max-width: 768px) {
+  .post-content table {
+    font-size: 14px;
+  }
+  
+  .post-content table th,
+  .post-content table td {
+    padding: 6px 10px;
+  }
+}
