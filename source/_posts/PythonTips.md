@@ -5,6 +5,26 @@ tags: Python
 cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 ---
 
+<style>
+.table-container {
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+table {
+  min-width: 100%;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+th, td {
+  padding: 8px 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+</style>
+
 # Python 笔记
 
 ## 目录
@@ -19,6 +39,8 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 [返回目录](#目录)
 
 ### 列表方法
+<div class="table-container">
+
 |方法|描述|返回值|
 |---|---|---|
 |`index(item)`|返回列表中指定元素的索引|`索引`,item不存在返回`error`|
@@ -34,17 +56,25 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 |`reverse()`|列表倒序|`None`|
 |**`list[begin:end:step]`**|切片，返回列表指定范围的元素|`列表`|
 
+</div>
+
+
 ## 元组 tuple
 
 [返回目录](#目录)
 
 ### 元组方法
+<div class="table-container">
+
 |方法|描述|返回值|
 |---|---|---|
 |`index(item)`|返回元组中指定元素的索引|`索引`,item不存在返回`error`|
 |`count(item)`|返回元组中指定元素的个数|`个数`|
 |`len(tuple)`|返回元组的长度|`长度`|
 |**`tuple[begin:end:step]`**|切片，返回元组指定范围的元素|`元组`|
+
+</div>
+
 
 ### 注意事项
 1. 元组不可变，不能添加、删除、修改元素
@@ -56,6 +86,8 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 [返回目录](#目录)
 
 ### 字符串方法
+<div class="table-container">
+
 |方法|描述|返回值|
 |---|---|---|
 |`index(item)`|返回字符串中指定元素起始位置的索引|`索引`,item不存在返回`error`|
@@ -66,6 +98,9 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 |`len(string)`|返回字符串的长度|`长度`|
 |**`string[begin:end:step]`**|切片，返回字符串指定范围的元素|`字符串`|
 
+</div>
+
+
 ### 注意事项
 1. 字符串不可变，不能添加、删除、修改元素
 
@@ -74,6 +109,8 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 [返回目录](#目录)
 
 ### 集合方法
+<div class="table-container">
+
 |方法|描述|返回值|
 |---|---|---|
 |`add(item)`|添加元素|`None`|
@@ -85,6 +122,8 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 |`union(set)`|返回两个集合的并集，该并集是新集合，原集合不变|`集合`|
 |`len(set)`|返回集合的长度|`长度`|
 
+</div>
+
 ### 注意事项
 1. 集合中的元素不能重复
 2. 集合是无序的，不能通过索引访问元素
@@ -94,6 +133,8 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 [返回目录](#目录)
 
 ### 字典方法
+<div class="table-container">
+
 |方法|描述|返回值|
 |---|---|---|
 |`dict[key] = value`|添加元素，若key已存在，则更新value|`None`|
@@ -102,6 +143,8 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 |`keys()`|返回字典中所有key的列表|`列表`|
 |`len(dict)`|返回字典的长度|`长度`|
 
+</div>
+
 ## 容器 container
 
 [返回目录](#目录)
@@ -109,6 +152,8 @@ cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 list,tuple,string,set,dict都是容器
 
 ### 容器通用方法
+<div class="table-container">
+
 |方法|描述|返回值|
 |---|---|---|
 |`len(container)`|返回容器的长度|`长度`|
@@ -116,6 +161,7 @@ list,tuple,string,set,dict都是容器
 |`min(container)`|返回容器中的最小值|`最小值`|
 |`sorted(container, [reverse=False])`|返回容器中的排序后的元素，reverse为True时，返回排序后的元素逆序|`排序后的元素list`|
 
+</div>
 
 ### 容器类型转换
 1. 转`list`：字典中的**key值**转为list元素；字符串的每个**字符**转为list元素
