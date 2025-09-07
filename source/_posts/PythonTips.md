@@ -32,6 +32,8 @@ th, td {
 > [元组](#元组-tuple)
 > [字符串](#字符串-string)
 > [集合](#集合-set)
+> [字典](#字典-dict)
+> [容器](#容器-container)
 
 
 ## 列表 list
