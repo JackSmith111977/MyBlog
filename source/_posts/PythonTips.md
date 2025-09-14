@@ -2,6 +2,7 @@
 title: "Python笔记(持续更新中)"
 date: 2025/09/06 19:56:00
 tags: Python
+updated:
 cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
 ---
 
@@ -373,6 +374,15 @@ line = Line()
 line.add_xaxis(["中国", "美国", "日本", "印度", "法国", "英国", "俄罗斯", "意大利", "德国", "西班牙"])
 ### y轴数据
 line.add_yaxis("GDP", [30, 25, 20, 15, 10, 5, 2, 1, 0.5, 0.1])
+
+## 设置全局配置选项
+line.set_global_opts(
+    title_opts=opts.TitleOpts(title="GDP"),
+    tooltip_opts=opts.TooltipOpts(is_show=True),
+    legend_opts=opts.LegendOpts(is_show=True),
+    toolbox_opts=opts.ToolboxOpts(is_show=True),
+    visualmap_opts=opts.VisualMapOpts(is_show=True)
+)
 
 ## 生成图表
 line.render()
