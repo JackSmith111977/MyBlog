@@ -20,25 +20,26 @@ tags:
 #### 算法思想
 1. 找到一条曲线 **y = wx + b** ，使得能够根据自变量x 尽可能准确地预测因变量y
 2. 模型最优解为
-\[ (w^*, b^*) = \arg\min_{i=0}^m (y_i - \hat{y}_i)^2 \]
+$$ (w^*, b^*) = arg\min_{i=0}^m (y_i - \hat{y}_i)^2 $$
 即调整w和b使得预测误差平方和最小
 
 #### 评价指标
 1. 均方误差：误差越小，模型预测效果越好
-\[ MSE = \frac{1}{m} \sum_{i=1}^m (y_i - \hat{y}_i)^2  \]
+$$ MSE = \frac{1}{m} \sum_{i=1}^m (y_i - \hat{y}_i)^2  $$
 2. 均方根误差：误差越小，模型预测效果越好
-\[ RMSE = \sqrt{MSE} = \sqrt{\frac{1}{m} \sum_{i=1}^m (y_i - \hat{y}_i)^2} \]
+$$ RMSE = \sqrt{MSE} = \sqrt{\frac{1}{m} \sum_{i=1}^m (y_i - \hat{y}_i)^2} $$
 3. 回归平方和：衡量​​回归模型“解释”的因变量变异程度​​（即模型通过自变量预测后，预测值与均值的差异）
-\[ SSR = \sum_{i=1}^m (\hat{y_i} - \bar{y})^2  \]
+$$ SSR = \sum_{i=1}^m (\hat{y_i} - \bar{y})^2  $$
 4. 残差平方和：衡量​​回归模型“未解释”的因变量变异程度​​（即预测值与实际值的误差）
-\[ SSE = \sum_{i=1}^m (y_i - \hat{y}_i)^2  \]
+$$ SSE = \sum_{i=1}^m (y_i - \hat{y}_i)^2  $$
 5. 总平方和：衡量​​因变量 y自身的总变异程度​​（即数据自然波动的大小）
-\[ SST = \sum_{i=1}^m (y_i - \bar{y})^2 = SSE + SSR \]
+$$ SST = \sum_{i=1}^m (y_i - \bar{y})^2 = SSE + SSR $$
 6. 决定系数R^2^: 衡量​​回归模型对因变量变异的解释比例​​（取值范围 [0,1]）
-\[ R^2 = \frac{SSR}{SST} = 1 - \frac{SSE}{SST}  \]
+$$ R^2 = \frac{SSR}{SST} = 1 - \frac{SSE}{SST}  $$
 实际中，R2越接近1，说明模型解释的变异越多，拟合效果越好
 <br>
-1. 调整后的决定系数R^2^~d~：在 R2基础上，​​惩罚“无意义的自变量加入”​​，更适合比较不同复杂度的模型
+
+7. 调整后的决定系数R^2^~d~：在 R2基础上，​​惩罚“无意义的自变量加入”​​，更适合比较不同复杂度的模型
 \[ R^2_d = 1 - \frac{m-1}{m-d-1} \cdot \frac{SSE}{SST}  \]
 其中，m为样本量，d为自变量个数，本质是对自由度的惩罚
 
@@ -105,20 +106,15 @@ model.summary()
 OLS即普通最小二乘法，即最小化残差平方和
 实现步骤：
 * RSS
-\[ \text{RSS}(\hat{\beta}_0, \hat{\beta}_1) = \sum_{i=1}^n e_i^2 = \sum_{i=1}^n \left( y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i \right)^2 \]
+![RSS](../assert/machine_learining/1.png)
 * 对所有的参数β求偏导
-\[ \frac{\partial \text{RSS}}{\partial \hat{\beta}_0} = -2 \sum_{i=1}^n \left( y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i \right) \]
-\[ \frac{\partial \text{RSS}}{\partial \hat{\beta}_1} = -2 \sum_{i=1}^n x_i \left( y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i \right) \]
+![偏导](../assert/machine_learining/2.png)
 * 令导数等于0，联立公式求解，得到所有的参数β
-\[ \begin{cases} 
-\sum_{i=1}^n \left( y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i \right) = 0 \\
-\sum_{i=1}^n x_i \left( y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i \right) = 0 
-\end{cases} \]
+![联立](../assert/machine_learining/3.png)
 * 解方程组，得到参数β
-\[ \hat{\beta}_1 = \frac{\sum_{i=1}^n (x_i - \bar{x})(y_i - \bar{y})}{\sum_{i=1}^n (x_i - \bar{x})^2} （斜率） \]
-\[ \hat{\beta}_0 = \bar{y} - \hat{\beta}_1 \bar{x} （截距）\]
+![求解](../assert/machine_learining/4.png)
 
-5. 绘制QQ图
+1. 绘制QQ图
 ~~~python
 # 绘制QQ图，用于检验残差是否服从正态分布
 sm.qqplot(model.resid, line='r')

@@ -82,3 +82,12 @@ live2d:
   dialog:
     enable: true
     hitokoto: true
+# _config.yml
+marked:
+  gfm: true # 启用 GitHub Flavored Markdown（可选）
+  breaks: true # 换行符转<br>（可选）
+  smartLists: true # 智能列表（可选）
+  smartypants: false # 关闭智能标点（避免与 LaTeX 冲突）
+  # 关键：禁用对 LaTeX 符号的转义
+  sanitize: false # 禁用 HTML 转义（重要！否则 $ 会被转义）
+  escape: false # 禁用特殊字符转义（关键！）
