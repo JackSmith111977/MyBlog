@@ -14,6 +14,18 @@ tags:
 # 机器学习
   
 ## 目录
+- [机器学习](#机器学习)
+  - [目录](#目录)
+  - [线性回归](#线性回归)
+    - [一元线性回归](#一元线性回归)
+      - [算法思想](#算法思想)
+      - [评价指标](#评价指标)
+      - [python中的实现](#python中的实现)
+      - [输出结果解读](#输出结果解读)
+    - [多项式回归](#多项式回归)
+      - [算法思想](#算法思想-1)
+      - [代码实现](#代码实现)
+    - [多元线性回归](#多元线性回归)
   
   
   
@@ -58,6 +70,9 @@ tags:
 其中，m为样本量，d为自变量个数，本质是对自由度的惩罚
   
 #### python中的实现
+
+[回到目录](#目录)
+
 1. 引入pandas模块，读取数据
   
 ~~~python
@@ -69,6 +84,7 @@ dataframe = pd.read_csv('data.csv')
 | --- | --- | --- | --- |
 |`pandas.read_csv(filename)` | 读取csv文件 | 文件名或文件路径 | DataFrame |
 |`dataframe.iloc[行索引器，列索引器]` | 获取行和列 | 行索引器(切片)：表示为 `start:stop` 即行的选择范围，当都为空时，默认选择所有行 <br> 列索引器(切片)：表示为 `start:stop` 即列的选择范围，当都为空时，默认选择所有列 | DataFrame |
+|`dataframe.loc[行索引器，列索引器]`|获取行和列 | 行索引器(切片)：表示为 `start:stop` 即行的选择范围，当都为空时，默认选择所有行 <br> 列索引器(切片)：表示为 `start:stop` 即列的选择范围，当都为空时，默认选择所有列 | DataFrame |
   
 2. 引入matplotlib模块，绘制图像，其中散点图为pyplot模块中的scatter()方法
   
@@ -82,7 +98,7 @@ plt.show()
   
 | 方法 | 描述 | 参数说明 | 返回值 |
 | --- | --- | --- | --- |
-|`matplotlib.pyplot.scatter(x, y, `<br> `s=None, c=None, marker=None,`<br> `cmap=None, norm=None, vmin=None, vmax=None, alpha=None, linewidths=None, verts=None, edgecolors=None, *, plotnonfinite=False, data=None, **kwargs)` | 绘制数据点 | x: 数据点的横坐标列表<br> y: 数据点的纵坐标列表<br> s: 数据点的大小列表<br> c: 数据点的颜色列表<br> marker: 数据点的标记列表<br> cmap: 颜色映射对象<br> norm: 颜色映射对象<br> vmin: 颜色映射对象<br> vmax: 颜色映射对象<br> alpha: 数据点的透明度列表<br> linewidths: 数据点的线宽列表<br> verts: 数据点的标记列表<br> edgecolors: 数据点的边框颜色列表<br> plotnon | 无 |
+|`matplotlib.pyplot.scatter()` | 绘制数据点 | x: 数据点的横坐标列表<br> y: 数据点的纵坐标列表<br> s: 数据点的大小列表<br> c: 数据点的颜色列表<br> marker: 数据点的标记列表<br> cmap: 颜色映射对象<br> norm: 颜色映射对象<br> vmin: 颜色映射对象<br> vmax: 颜色映射对象<br> alpha: 数据点的透明度列表<br> linewidths: 数据点的线宽列表<br> verts: 数据点的标记列表<br> edgecolors: 数据点的边框颜色列表<br> plotnon | 无 |
 |`matplotlib.pyplot.show()`|显示图|无|无|
 |`matplotlib.pyplot.figure()`|创建一个新图|无|无|
   
@@ -101,8 +117,8 @@ y = df_const['y'] # 提取因变量列作为因变量向量
 |---|---|---|---|
 |`statsmodels.api.add_constant(dataframe)`|增加截距项，即在原数据最右侧新增一列全为1的列'const'|dataframe|增加截距项后的数据集dataframe|
 |`statsmodels.api.OLS(y, X)`|建立OLS模型|y: 因变量向量<br>X: 自变量矩阵|OLS模型对象|
-|`statsmodels.api.qqplot(data, `<br>`dist=<scipy.stats._continuous_distns.norm_gen object>, <br>line='45', `<br>`ax=None, <br>**kwargs)`|绘制QQ图|data（必选参数）:待检验的样本数据（一维数据）<br> dist（可选参数）:检验分布，默认为正态分布 <br>line（可选参数）: 绘制的参考线，默认为45度线 's'：绘制标准化分位数的参考线（适用于非标准分布）'r--'：自定义直线样式（如红色虚线）<br> ax（可选参数）: 绘图对象 <br>kwargs（可选参数）:绘图参数|无|
-|`statsmodels.api.graphics.plot_regress_exog(model, `<br>`exog_idx, `<br>`fig=None, `<br>`ax=None, `<br>`**kwargs)`|绘制自变量和因变量的回归图|model: OLS模型对象<br>exog_idx: 自变量索引<br>fig（可选参数）: 绘图对象<br>ax（可选参数）: 绘图对象<br>kwargs（可选参数）:绘图参数|无|
+|`statsmodels.api.qqplot()`|绘制QQ图|data（必选参数）:待检验的样本数据（一维数据）<br> dist（可选参数）:检验分布，默认为正态分布 <br>line（可选参数）: 绘制的参考线，默认为45度线 's'：绘制标准化分位数的参考线（适用于非标准分布）'r--'：自定义直线样式（如红色虚线）<br> ax（可选参数）: 绘图对象 <br>kwargs（可选参数）:绘图参数|无|
+|`statsmodels.api.graphics.plot_regress_exog()`|绘制自变量和因变量的回归图|model: OLS模型对象<br>exog_idx: 自变量索引<br>fig（可选参数）: 绘图对象<br>ax（可选参数）: 绘图对象<br>kwargs（可选参数）:绘图参数|无|
 |`model.fit()`|训练模型|无|无|
 |`model.predict(X)`|预测|X: 自变量矩阵|预测结果向量|
 |`model.summary()`|查看模型报告|无|无|
@@ -128,7 +144,7 @@ OLS即普通最小二乘法，即最小化残差平方和
 * 解方程组，得到参数β
 ![求解](../assert/machine_learining/4.png )
   
-1. 绘制QQ图
+5. 绘制QQ图
 ~~~python
 # 绘制QQ图，用于检验残差是否服从正态分布
 sm.qqplot(model.resid, line='r')
@@ -155,4 +171,40 @@ fig = plt.figure(figsize=(12, 8))
 # 绘制残差图
 fig = sm.graphics.plot_regress_exog(model, 'x', fig=fig)
 ~~~
+
+#### 输出结果解读
+
+[回到目录](#目录)
+
+| 参数 | 描述 |
+| --- | --- |
+| Prob (F-statistic) | 模型F值，用于判断模型是否显著，值越小，模型越显著 |
+| R-squared | 模型解释能力，值越接近1，模型越优 |
+| Adj. R-squared | 模型解释能力，考虑了模型中的自由度，值越接近1，模型越优 |
+| Skew | 模型残差偏度，值越接近0，模型越无偏 |
+| Kurtosis | 模型残差峰度，值越接近3，模型越无偏 |
+| P > \|t\| | 模型残差标准差，值越接近1，模型越无偏 |
+| coef | 自变量权重系数 |
+
+### 多项式回归
+
+[回到目录](#目录)
+
+#### 算法思想
+若有一条抛物线隐藏在数据集中，那么在模型中引入二次项或许会得到更好的拟合效果
+
+#### 代码实现
+在[第三步](#python中的实现)增加截距项那一步改进代码
+~~~python
+import statsmodels.api as sm
+# 增加二次项
+df_const = sm.add_constant(dataframe)
+df_const['x_2'] = df_const['x'] ** 2
+# 将数据集X和y分别提取出来 
+X = df_const.loc[:, df_const.columns != 'y'] #自变量
+y = df_const.loc[:, df_const.columns == 'y'] #因变量
+~~~
+
+### 多元线性回归
+
   
