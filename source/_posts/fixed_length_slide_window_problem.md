@@ -3,6 +3,8 @@ title: "定长滑窗问题"
 tags:
   - 算法
 date: 
+categories: 
+    - 算法笔记
 ---
 
 # 定长滑窗问题
