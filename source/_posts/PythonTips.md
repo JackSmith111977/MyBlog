@@ -4,6 +4,8 @@ date: 2025/09/06 19:56:00
 tags: Python
 updated:
 cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/130997637_p0-cut.jpg
+categories:
+  - 编程语言
 ---
 
 <style>
@@ -41,6 +43,7 @@ th, td {
 > 10. [模块 module](#模块-module)
 > 11. [json](#json)
 > 12. [pyecharts](#pyecharts)
+> 13. [面向对象 OOP](#面向对象)
 
 
 ## 列表 list
@@ -387,6 +390,117 @@ line.set_global_opts(
 ## 生成图表
 line.render()
 ~~~
+
+
+## 面向对象
+[返回目录](#目录)
+
+### 类
+基本结构：
+~~~python
+class Student:
+    # 成员变量
+    name = None
+    age = None
+    gender = None
+    
+    # 成员方法，必须有self参数，表示当前对象
+    def showname(self):
+        print(self.name)
+~~~
+构造方法：
+~~~python
+# 构造方法
+    def __init__(self, name, gender, age):
+        self.name = name
+        self.gender = gender
+        self.age = age
+        print("创建一个学生对象")
+~~~
+魔术方法：
+|方法|描述|参数列表|返回值|
+|---|---|---|---|
+|`__init__(self, *args, **kwargs)`|构造方法|`self`: 当前对象 <br> `*args`: 可变参数 <br> `**kwargs`: 关键字参数|无|
+|`__str__(self)`|对象转字符串|`self`: 当前对象|字符串|
+|`__lt__(self, other)`|重写小于，用于对象某一规则的比较|`self`: 当前对象 <br> `other`: 其他对象|布尔值|
+|`__le__(self, other)`|重写小于等于，用于对象某一规则的比较|`self`: 当前对象 <br> `other`: 其他对象|布尔值|
+|`__eq__(self, other)`|重写等于，用于对象某一规则的比较|`self`: 当前对象 <br> `other`: 其他对象|布尔值|
+
+~~~python
+    # 魔术方法
+    ## __str__(): 返回对象的字符串表示
+    def __str__(self):
+        return "name=%s,gender=%s,age=%s" % (self.name, self.gender, self.age)
+    
+    ## __lt__(): 用于类对象的小于比较(less than)
+    def __lt__(self, other):
+        return self.age < other.age
+    
+    ## __le__(): 用于类对象的小于等于比较(less than or equal)
+    def __le__(self, other):
+        return self.age <= other.age
+    
+    ## __eq__(): 用于类对象的等于比较(equal)，默认"=="比较的是内存地址
+    def __eq__(self, other):
+        return self.age == other.age
+~~~
+
+### 类的封装
+**封装**：封装就是将**属性或方法私有化**，属性或方法私有化后，外部无法直接访问属性或方法，只能通过方法访问属性或方法
+
+语法：
+属性私有化：`__属性名`
+方法私有化：`__方法名()`
+受保护属性：`_属性名`
+受保护方法：`_方法名()`
+
+~~~python
+class Student:
+    # 私有成员变量
+    __name = None
+    __age = None
+    __sex = None
+    
+    def __init__(self, name, age, sex):
+        self.__name = name
+        self.__age = age
+        self.__sex = sex
+    
+    def show(self):
+        print("姓名：%s, 年龄：%d, 性别：%s" % (self.__name, self.__age, self.__sex))
+    
+    def getName(self):
+        return self.__name
+    
+    def getAge(self):
+        return self.__age
+    
+    def getSex(self):
+        return self.__sex
+    
+    # 私有成员方法
+    def __setName(self, name):
+        self.__name = name
+    
+    def __setAge(self, age):
+        self.__age = age
+        
+    def __setSex(self, sex):
+        self.__sex = sex
+~~~
+
+### 类的继承
+继承：子类继承父类的属性和方法，并添加新的属性和方法
+1. 不同于Java语言，Python语言支持多继承
+2. 多继承时，父类同名属性或方法，会按照从左到右的顺序进行覆盖，即左边优先级更大
+3. 子类只继承父类的**公有**或**受保护**属性和方法，不会继承父类的私有属性或方法
+4. 父类的私有属性或方法，子类无法直接访问，需通过父类方法进行访问
+5. 子类可以**重写**父类的同名方法
+
+语法：
+1. 继承：`class 子类名(父类名1[, 父类名2, ...]):`
+
+2. 调用：`super().[属性或方法名(参数)]`或`父类名.方法名(self, 参数)`
 
 
 
