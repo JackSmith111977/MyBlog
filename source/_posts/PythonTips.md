@@ -502,7 +502,57 @@ class Student:
 
 2. 调用：`super().[属性或方法名(参数)]`或`父类名.方法名(self, 参数)`
 
+### 类的多态
+* 子类继承父类，并重写父类的同名方法
+* 函数参数可以指定父类对象，调用时传入子类对象
+* 通过调用不同子类的同名方法，实现多态
+* 父类可以声明一个抽象方法，子类必须实现该抽象方法
+~~~python
+# 多态
+class Animal:
+    def cry(self):
+        print("动物叫")
+    
+    # 父类可以定义抽象方法 子类必须实现抽象方法
+    def eat(self):
+        pass
+        
+class Dog(Animal):
+    # 重写父类的方法
+    def cry(self):
+        print("汪汪汪")
+    
+    # 重写父类抽象方法
+    def eat(self):
+        print("大狗嚼嚼嚼")
+        
+class Cat(Animal):
+    # 重写父类方法
+    def cry(self):
+        print("喵喵喵")
+        
+    # 重写父类抽象方法
+    def eat(self):
+        print("吃吃吃")
+        
+# 定义一个方法 接收一个父类对象
+def print_cry(animal: Animal):
+    animal.cry()
+    
+def print_eat(animal: Animal):
+    animal.eat()
+        
+        
+dog = Dog()
+cat = Cat()
 
+# 传入不同子类 调用不同的方法
+print_cry(dog)
+print_cry(cat)
+
+print_eat(dog)
+print_eat(cat)
+~~~
 
 
 
