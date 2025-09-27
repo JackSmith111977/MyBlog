@@ -3,6 +3,8 @@ title: Java笔记(持续更新...)
 date: 2025-09-03 21:45:00
 tags: Java
 cover: https://kei-blog.oss-cn-beijing.aliyuncs.com/asset/115945063_p0-cut.jpg
+categories: 
+    - 编程语言
 ---
 
 
