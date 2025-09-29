@@ -3,6 +3,7 @@ title: 机器学习笔记
 date: null
 tags:
   - 算法
+  - Python
 ---  
   
   
@@ -29,6 +30,9 @@ tags:
       - [算法思想](#算法思想-2)
       - [模型选择](#模型选择)
       - [代码实现](#代码实现-1)
+  - [逻辑回归](#逻辑回归)
+    - [算法思想](#算法思想-3)
+    - [代码实现](#代码实现-2)
   
   
   
@@ -41,34 +45,35 @@ tags:
 #### 算法思想
 1. 找到一条曲线 **y = wx + b** ，使得能够根据自变量x 尽可能准确地预测因变量y
 2. 模型最优解为
-<p align="center"><img src="https://latex.codecogs.com/gif.latex?(w^*,%20b^*)%20=%20arg\min_{i=0}^m%20(y_i%20-%20\hat{y}_i)^2"/></p>  
+<br>
+<p align="center"><img src="https://latex.codecogs.com/svg.latex?(w^*,%20b^*)%20=%20arg\min_{i=0}^m%20(y_i%20-%20\hat{y}_i)^2"/></p>  
   
 即调整w和b使得预测误差平方和最小
   
 #### 评价指标
 1. 均方误差：误差越小，模型预测效果越好
-<p align="center"><img src="https://latex.codecogs.com/gif.latex?MSE%20=%20\frac{1}{m}%20\sum_{i=1}^m%20(y_i%20-%20\hat{y}_i)^2"/></p>  
+<br><p align="center"><img src="https://latex.codecogs.com/svg.latex?MSE%20=%20\frac{1}{m}%20\sum_{i=1}^m%20(y_i%20-%20\hat{y}_i)^2"/></p>  
   
 2. 均方根误差：误差越小，模型预测效果越好
-<p align="center"><img src="https://latex.codecogs.com/gif.latex?RMSE%20=%20\sqrt{MSE}%20=%20\sqrt{\frac{1}{m}%20\sum_{i=1}^m%20(y_i%20-%20\hat{y}_i)^2}"/></p>  
+<br><p align="center"><img src="https://latex.codecogs.com/svg.latex?RMSE%20=%20\sqrt{MSE}%20=%20\sqrt{\frac{1}{m}%20\sum_{i=1}^m%20(y_i%20-%20\hat{y}_i)^2}"/></p>  
   
 3. 回归平方和：衡量​​回归模型“解释”的因变量变异程度​​（即模型通过自变量预测后，预测值与均值的差异）
-<p align="center"><img src="https://latex.codecogs.com/gif.latex?SSR%20=%20\sum_{i=1}^m%20(\hat{y_i}%20-%20\bar{y})^2"/></p>  
+<br><p align="center"><img src="https://latex.codecogs.com/svg.latex?SSR%20=%20\sum_{i=1}^m%20(\hat{y_i}%20-%20\bar{y})^2"/></p>  
   
 4. 残差平方和：衡量​​回归模型“未解释”的因变量变异程度​​（即预测值与实际值的误差）
-<p align="center"><img src="https://latex.codecogs.com/gif.latex?SSE%20=%20\sum_{i=1}^m%20(y_i%20-%20\hat{y}_i)^2"/></p>  
+<br><p align="center"><img src="https://latex.codecogs.com/svg.latex?SSE%20=%20\sum_{i=1}^m%20(y_i%20-%20\hat{y}_i)^2"/></p>  
   
 5. 总平方和：衡量​​因变量 y自身的总变异程度​​（即数据自然波动的大小）
-<p align="center"><img src="https://latex.codecogs.com/gif.latex?SST%20=%20\sum_{i=1}^m%20(y_i%20-%20\bar{y})^2%20=%20SSE%20+%20SSR"/></p>  
+<br><p align="center"><img src="https://latex.codecogs.com/svg.latex?SST%20=%20\sum_{i=1}^m%20(y_i%20-%20\bar{y})^2%20=%20SSE%20+%20SSR"/></p>  
   
 6. 决定系数R^2^: 衡量​​回归模型对因变量变异的解释比例​​（取值范围 [0,1]）
-<p align="center"><img src="https://latex.codecogs.com/gif.latex?R^2%20=%20\frac{SSR}{SST}%20=%201%20-%20\frac{SSE}{SST}"/></p>  
+<br><p align="center"><img src="https://latex.codecogs.com/svg.latex?R^2%20=%20\frac{SSR}{SST}%20=%201%20-%20\frac{SSE}{SST}"/></p>  
   
 实际中，R2越接近1，说明模型解释的变异越多，拟合效果越好
 <br>
   
 7. 调整后的决定系数R^2^~d~：在 R2基础上，​​惩罚“无意义的自变量加入”​​，更适合比较不同复杂度的模型
-<p align="center"><img src="https://latex.codecogs.com/gif.latex?R^2_d%20=%201%20-%20\frac{m-1}{m-d-1}%20\cdot%20\frac{SSE}{SST}"/></p>  
+<br><p align="center"><img src="https://latex.codecogs.com/svg.latex?R^2_d%20=%201%20-%20\frac{m-1}{m-d-1}%20\cdot%20\frac{SSE}{SST}"/></p>  
   
 其中，m为样本量，d为自变量个数，本质是对自由度的惩罚
   
@@ -279,3 +284,296 @@ import statsmodels.stats.outliers_influence as oi
 """
 vif = oi.variance_inflation_factor()
 ~~~
+
+## 逻辑回归
+[回到目录](#目录)
+逻辑回归是一种二元分类模型，用于判断一个样本属于某一类别的概率。
+
+### 算法思想
+通过找到一条直线能够尽可能将不同类别分开
+* 线性回归预测函数
+
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?y = w^T x + b"/></p><br> 
+
+* 期望的逻辑回归预测函数 即y取值为1的概率
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?prob(y = 1) = w^T x + b"/></p> <br>
+
+* 这个式子存在等式左侧值域为[0, 1] 而等式右侧的值域为(-∞, ∞)
+* 为了解决这个问题，我们可以将等式右侧的值域映射到[0, 1]，即**Sigmoid**函数
+  
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?\sigma(t) = \frac{1}{1 + e^{-t}}"/></p> <br>
+
+  或者，可以将等式左侧值域映射到(-∞, ∞)，即**Logit**函数
+  
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?odds = \frac{p}{1 - p}"/></p> <br>
+
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?log(odds)"/></p> <br>
+
+* 引入代价函数来量化预测值和真实值的差距，其中h(x)为预测值，y为真实值
+
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?\text{Cost }(h(x),y) = \begin{cases} -\log(h(x)) & \text{if } y = 1 \\ -\log(1 - h(x)) & \text{if } y = 0 \end{cases}"/></p> <br>
+
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?Cost(h(x), y)= -ylog(h(x)) - (1 - y)log(1 - h(x))"/></p> <br>
+
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?\begin{align}J(w) &= \frac{1}{m} \sum_{i=1}^{m} \text{Cost}(h_w(x_i), y_i) \\ &= -\frac{1}{m} \left[ \sum_{i=1}^{m} y_i \log h_w(x_i) + (1 - y_i) \log(1 - h_w(x_i)) \right] \end{align}"/></p> <br>
+
+* 拟合参数
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?\min_{w} J(w)"/></p> <br>
+
+* 梯度下降法，不断重复以下步骤
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?w_{j}:=w_{j}-\alpha\frac{\partial J(w)}{\partial w_{j}}"/></p> <br>
+
+  **w_j**：表示第 j 个模型参数（权重）
+  **α**：学习率（Learning Rate），控制每次更新的步长
+  **∂J(w)/∂w_j**：损失函数 J(w) 对参数 w_j 的偏导数，表示在当前点处损失函数的变化率
+
+  当梯度下降法收敛时，损失函数 J(w) 的值会最小化，即 J(w) 的导数等于 0
+  <br>
+
+* 预测新样本
+  <br><p align="center"><img src="https://latex.codecogs.com/svg.latex?h_w(x) = \frac{1}{1 + e^{-w^Tx}}"/></p>
+
+### 代码实现
+1. 读取数据
+  [banding_partial.csv数据集](../dataset/banking_partial.csv)
+  ~~~python
+  import pandas as pd
+
+  # 1. 读取数据
+  print("------读取数据------")
+  data = pd.read_csv("./banking_partial.csv", header=0)  # header=0表示第一行是列名
+  data.dropna()  # dropna() 方法删除数据中的空值
+  print(data.shape)  # 查看数据集的行数和列数 返回(行数,列数)
+  ~~~
+  
+2. 描述性分析与可视化分析
+~~~python
+# 2. 描述性分析与可视化分析
+print("------描述性分析------")
+print(data.sample(5)) # 查看数据集的前5行
+print("------数据基本信息------")
+print(data.info()) # 查看每个列的数据类型和缺失值个数
+
+print("------数据可视化------")
+import seaborn as sns
+import matplotlib.pyplot as plt
+"""figure() 方法设置绘图窗口
+- args: 
+    figsize: 绘图窗口的尺寸，参数为宽和高，单位为英寸
+"""
+plt.figure(figsize=(32, 10)) # figure() 方法设置绘图窗口，并设置绘图窗口的尺寸，参数为宽和高，单位为英寸
+"""subplot() 方法创建子图，参数为行数，列数，子图编号
+- args: 
+    nrows: 行数
+    ncols: 列数
+    index: 子图编号
+"""
+plt.subplot(241) # 创建子图 241
+"""countplot() 绘制分类变量的频数统计图
+- args: 
+    data: DataFrame 数据集
+    x: 指定在 x 轴上显示的分类变量
+    y: 指定在 y 轴上显示的分类变量（可选，与 x 互斥）
+    hue: 分组变量，用不同颜色区分子组
+    palette: 调色板，控制颜色方案
+    order: 指定类别显示顺序
+"""
+sns.countplot(x = 'y', data = data, hue='y', palette='hls') # 绘制分类变量的频数统计图
+
+plt.subplot(242) # 创建子图 242
+sns.countplot(x = 'job', data = data)
+
+plt.subplot(243)
+sns.countplot(x = 'marital', data=data)
+
+plt.subplot(244)
+sns.countplot(x='default', data=data)
+
+plt.subplot(245)
+sns.countplot(x='housing', data=data)
+
+plt.subplot(246)
+sns.countplot(x='loan', data=data)
+
+plt.subplot(247)
+sns.countplot(x='poutcome', data=data)
+~~~
+3. 数据预处理
+  1. 注意将离散变量拆分成单独的特征，即转化为哑变量
+    ~~~python
+    # 3. 数据预处理
+    print("------数据预处理------")
+    ## 1. 离散变量转换为哑变量
+    """get_dummies() 方法将分类变量转换为哑变量
+    - args: 
+        data: DataFrame 数据集
+        columns: 指定需要转换的列
+    """
+    data_dummies = pd.get_dummies(data, columns=['job', 'marital', 'default',  'housing', 'loan',  'poutcome'])
+    print(data_dummies.columns) # 查看哑变量的列名
+
+    ## 2. 查看哑变量结构
+    """sample() 方法从数据集随机抽取指定数量的样本
+    - args: 
+        n: 指定要抽取的样本数量
+        random_state: 指定随机数种子，保证每次运行结果一致
+    """
+    print("-----查看哑变量结构------")
+    print(data_dummies[['loan_no','loan_unknown','loan_yes']].sample(5, random_state=42))
+    ~~~
+  2. 划分自变量和因变量
+  3. 划分训练集与测试集
+    ~~~python
+    ## 3. 划分自变量和因变量
+    X = data_dummies.iloc[: , 1: ] # 自变量，第二列到最后列
+    y = data_dummies.iloc[: , 1] # 因变量，第一列
+    ## 4. 划分训练集和测试集
+    from sklearn.model_selection import train_test_split as tts
+    """train_test_split() 方法划分训练集和测试集
+    - args: 
+        *arrays: 要分割的数据数组（通常是特征矩阵 X 和目标变量 y）
+        test_size: 测试集所占比例（0-1之间）或样本数量
+        train_size: 训练集所占比例（0-1之间）或样本数量
+        random_state: 随机种子，确保结果可重现
+        shuffle: 是否在分割前打乱数据（默认为 True）
+        stratify: 分层抽样，保持各类别在训练集和测试集中的比例一致
+    - return: 
+        X_train: 训练集特征数据
+        X_test: 测试集特征数据
+        y_train: 训练集目标变量
+        y_test: 测试集目标变量
+    """
+    X_tr, X_ts, y_tr, y_ts = tts(X, y, test_size=0.2) # X_tr为训练集自变量，X_ts为测试集自变量， y_tr为训练集因变量，y_ts为测试集因变量
+    print("------查看训练集和测试集的维度------")
+    print(f"训练集的维度：{X_tr.shape}，{y_tr.shape}")
+    ~~~
+4. 建立模型
+  ~~~python
+  # 4. 建立模型
+  print("------建立模型------")
+  from sklearn.linear_model import LogisticRegression
+  """LogisticRegression() 方法创建逻辑回归模型
+  逻辑回归模型：
+      - 使用线性回归模型计算输入特征的线性组合：
+          y = w0 + w1*x1 + w2*x2 + ... + wn*xn
+      - 将线性组合结果通过Sigmoid函数（逻辑函数）转换为概率值：
+          y = 1 / (1 + e^(-y))
+      - 根据概率阈值（通常为0.5）进行分类决策
+      
+      y = 预测结果
+      w0, w1, w2, ..., wn = 模型参数
+      x1, x2, ..., xn = 特征变量
+      e = 2.71828
+      e^(-y) = 1 / (1 + e^())
+
+  """
+  model = LogisticRegression()
+  """fit() 方法训练模型
+  - args: 
+      X: 特征矩阵
+      y: 目标变量
+  """
+  model.fit(X_tr, y_tr)
+  ~~~
+5. 模型评估
+~~~python
+# 5. 模型评估
+"""predict() 方法对测试集进行预测
+- args: 
+    X: 测试集特征数据
+- return: 
+    y_pred: 预测结果
+"""
+
+## 1. 预测并统计结果
+y_pred = model.predict(X_ts)
+print("------模型评估------")
+"""value_counts() 方法统计变量的频数
+- return: 
+    Series: 统计结果
+"""
+print(pd.DataFrame(y_pred)[0].value_counts()) # 统计预测结果
+
+## 2. 查看混淆矩阵
+from sklearn.metrics import confusion_matrix
+"""confusion_matrix() 方法计算混淆矩阵
+- args: 
+    y_true: 真实标签
+    y_pred: 预测标签
+- return: 
+    array: 混淆矩阵
+"""
+print("------查看混淆矩阵------")
+print("真负|假正")
+print("---------")
+print("假负|真正")
+print(confusion_matrix(y_ts, y_pred)) # 混淆矩阵
+
+## 3. 查看混淆矩阵相关评分
+from sklearn.metrics import classification_report
+print("------查看混淆矩阵相关评分------")
+"""classification_report() 方法查看混淆矩阵相关评分
+- args: 
+    y_true: 真实标签
+    y_pred: 预测标签
+- return: 
+    str: 评分结果
+- tip:
+    - precision: 精确度，预测为正的样本中，有多少是真正的正样本 Precision = TP / (TP + FP)
+    - recall: 召回率，有多少是真正的正样本被预测为正样本 Recall = TP / (TP + FN)
+    - f1-score: F1分数，取精确度和召回率的调和平均值
+    - support: 支持度，样本中正样本的个数
+    
+    - accuracy: 准确率，预测正确的样本个数占所有样本的百分比
+    - macro avg: 宏平均，对每个类别的评分求平均（Precision, Recall, F1-score）
+    - weighted avg: 微平均，对每个类别的评分求平均，并乘以支持度求和
+"""
+print(classification_report(y_ts, y_pred))
+~~~
+6. 5折交叉验证
+~~~python
+## 4. 查看k折交叉验证计算准确率
+"""k折交叉验证：
+将数据集划分为K个大小相似的子集，
+轮流使用其中K-1个子集作为训练集，
+剩余1个子集作为验证集，
+重复K次训练和验证过程。
+"""
+from sklearn.model_selection import cross_val_score
+"""cross_val_score() 方法计算k折交叉验证的准确率
+
+- args: 
+    estimator: 模型
+    X: 特征矩阵
+    y: 目标变量
+    cv: 交叉验证折数，通常为5或10
+    scoring: 评分标准
+- return: 
+    array: 评分结果
+"""
+scores = cross_val_score(model, X, y, cv=10, scoring='accuracy')
+"""mean() 方法计算平均值
+
+- return: 
+    float: 平均值
+"""
+print("------查看k折交叉验证计算准确率------")
+print(scores.mean())
+~~~
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
