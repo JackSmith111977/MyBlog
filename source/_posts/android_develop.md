@@ -32,9 +32,9 @@ categories:
       - [Service的启动方式](#service的启动方式)
       - [Service的生命周期](#service的生命周期)
     - [BroadcastReceiver](#broadcastreceiver)
-    - [创建BroadcastReceiver](#创建broadcastreceiver)
-    - [注册BroadcastReceiver](#注册broadcastreceiver)
-    - [Broadcast 分类](#broadcast-分类)
+      - [创建BroadcastReceiver](#创建broadcastreceiver)
+      - [注册BroadcastReceiver](#注册broadcastreceiver)
+      - [Broadcast 分类](#broadcast-分类)
     - [ContentProvider](#contentprovider)
       - [创建ContentProvider](#创建contentprovider)
       - [注册ContentProvider](#注册contentprovider)
@@ -63,22 +63,38 @@ categories:
       - [引入依赖](#引入依赖)
       - [布局属性](#布局属性-6)
       - [RecyclerView的使用](#recyclerview的使用)
+  - [布局](#布局)
+    - [测量和布局](#测量和布局)
+    - [FrameLayout](#framelayout)
+      - [自身属性](#自身属性)
+      - [子视图排列属性](#子视图排列属性)
+    - [LinearLayout](#linearlayout)
+      - [自身属性](#自身属性-1)
+      - [子视图属性](#子视图属性)
+    - [RelativeLayout](#relativelayout)
+      - [子视图属性](#子视图属性-1)
+    - [ConstraintLayout](#constraintlayout)
 
 ## 前置条件
 * [安装Android Studio](https://developer.android.google.cn/studio/index.html?hl=ro)
 
 ## 四大组件
+
+[回到目录](#目录)
+
 |组件名称|场景|用途|
 |---|---|---|
 |[Activity](#activity)|界面交互|是用户交互的入口点，代表一个界面，可以拉起其他的界面和组件|
-|Service|后台服务|处理耗时任务(即使应用退出)，比如下载，网络请求，跨进程访问等|
-|BroadcastReceiver|事件响应|捕获系统事件(时区变更，短信到达)或者用户发送到自定义事件，然后根据事件决定接下来的业务逻辑|
-|ContentProvider|数据共享|对外安全暴露私有数据，提供统一的api访问，内部可以是不同存储方式的实现|
+|[Service](#service)|后台服务|处理耗时任务(即使应用退出)，比如下载，网络请求，跨进程访问等|
+|[BroadcastReceiver](#broadcastreceiver)|事件响应|捕获系统事件(时区变更，短信到达)或者用户发送到自定义事件，然后根据事件决定接下来的业务逻辑|
+|[ContentProvider](#contentprovider)|数据共享|对外安全暴露私有数据，提供统一的api访问，内部可以是不同存储方式的实现|
 
 ### 入口文件
 AndroidManifest.xml
 
 ### Activity
+
+[回到目录](#目录)
 
 #### 创建一个Activity
 * 首先在layout目录下创建一个**xml文件**，并设置文件名，如activity_1.xml
@@ -239,6 +255,8 @@ Intent是Android提供的用来协助组件间的交互和通信机制，描述�
 
 ### Service
 
+[回到目录](#目录)
+
 * 无ui，可后台长时间运行
 * 启动后，切换应用仍会运行一段时间
 * 可用于应用处理网络事务、音频播放、数据同步等
@@ -334,10 +352,12 @@ class MyService : Service() {
 
 ### BroadcastReceiver
 
+[回到目录](#目录)
+
 Broadcast 是一种用于应用程序之间或程序内部的一种通信机制
 BroadcastReceiver 捕获系统事件或用户的自定义事件，并根据事件执行对应的逻辑
 
-### 创建BroadcastReceiver
+#### 创建BroadcastReceiver
 ~~~kotlin
 /**
  * 广播接收器类，用于接收和处理广播消息
@@ -356,7 +376,7 @@ class MyReceiver : BroadcastReceiver() {
 }
 ~~~
 
-### 注册BroadcastReceiver
+#### 注册BroadcastReceiver
 * 在AndroidManifest.xml中注册BroadcastReceiver[静态注册，程序未启动也能监听广播]
 ~~~xml
 广播接收器声明块
@@ -428,7 +448,7 @@ override fun onDestroy() {
 }
 ~~~
 
-### Broadcast 分类
+#### Broadcast 分类
 | 广播类型 | 方法 | 描述 |
 | --- | --- | --- |
 | 标准广播 | sendBroadcast(Intent intent) | 异步广播，发送给所有注册的接收器，但无法将处理结果发送给下一个接收器，无法终止广播传播 |
@@ -445,6 +465,9 @@ override fun onDestroy() {
 ~~~
 
 ### ContentProvider
+
+[回到目录](#目录)
+
 以标准化的方式在Android应用间共享数据，以相对安全的方式封装数据存储以及增删改查，提供对外统一接口供其他程序调用
 
 * 通过 **uri**[universal resource identifier ，通用资源标识符]访问数据
@@ -1254,9 +1277,154 @@ systemProp.http.proxyHost=http://127.0.0.1:端口号
     ~~~
 5. 在Activity & Fragment中调用
 
+## 布局
 
+[回到目录](#目录)
 
+Android的布局过程是ui构建的核心环节，本质是 **视图树(View Hierarchy)** 中每个 **节点(View)** 确定自身以及其子元素尺寸和位置的过程
 
+### 测量和布局
+1. 测量 Measure
+    * 遍历子视图
+        * 跳过View.GONE
+        * 对其他子视图调用 measureChildWithMargins()
+    * 计算最大子视图尺寸
+        * 宽度：measureWidth + marginLeft + marginRight 的最大值
+        * 高度：measureHeight + marginTop + marginBottom 的最大值
+    * 处理自身尺寸
+        * 最终宽度 = max(子视图最大宽度，背景最小宽度，建议最小宽度) + paddingLeft + paddingRight
+        * 最终高度 = max(子视图最大高度，背景最小高度，建议最小高度) + paddingTop + paddingBottom
+        * 结果还需满足父视图传入的MeasureSpec
+    * 处理特殊子视图：设置了layout_gravity需重新测量调整位置
+2. 布局 Layout
+    * 确定布局区域 
+    * 遍历子视图
+
+### FrameLayout
+
+核心价值在于通过**layout_gravity**实现子视图的精准叠加定位
+
+#### 自身属性
+| 属性 | 描述 | 参数说明 |
+| --- | --- | --- |
+| android:layout_width | 视图宽度 | match_parent:匹配父视图宽度<br>wrap_content:包裹内容宽度<br>具体数值:具体数值 |
+| android:layout_height | 视图高度 | match_parent:匹配父视图高度<br>wrap_content:包裹内容高度<br>具体数值:具体数值 |
+| android:layout_gravity | 视图对齐方式 | left:左对齐<br>right:右对齐<br>center:居中对齐<br>top:顶部对齐<br>bottom:底部对齐<br>可以通过竖杠连接多个值 |
+| android:background | 视图背景 | 颜色值:颜色值<br>图片:图片路径 |
+| android:foreground | 视图前景 | 颜色值:颜色值<br>图片:图片路径 |
+| android:foregroundGravity | 视图前景对齐方式 | left:左对齐<br>right:右对齐<br>center:居中对齐<br>top:顶部对齐<br>bottom:底部对齐 |
+
+#### 子视图排列属性
+
+子视图默认排列在FrameLayout的左上角，且允许堆叠
+最终位置为对其方式并加上边距值后的位置
+
+| 属性 | 描述 | 参数说明 |
+| --- | --- | --- |
+| android:layout_gravity | 子视图对齐方式 | left:左对齐<br>right:右对齐<br>center:居中对齐<br>top:顶部对齐<br>bottom:底部对齐 |
+| android:layout_marginStart | 子视图左边距 | 单位:dp |
+| android:layout_marginEnd | 子视图右边距 | 单位:dp |
+| android:layout_marginTop | 子视图上边距 | 单位:dp |
+| android:layout_marginBottom | 子视图下边距 | 单位:dp |
+
+### LinearLayout
+
+核心优势在于方向性排列和权重分配，适合构建列表、表单等结构性界面，但嵌套或频繁使用layout_weight属性可能会导致性能问题。
+
+#### 自身属性
+| 属性 | 描述 | 参数说明 |
+| --- | --- | --- |
+| **android:orientation** | 排列方向 | horizontal：水平排列<br>vertical：垂直排列 |
+| android:layout_width | 宽度 | match_parent：填充父布局<br>wrap_content：内容自适应<br>具体数值 |
+| android:layout_height | 高度 | match_parent：填充父布局<br>wrap_content：内容自适应<br>具体数值 |
+| android:background | 背景 | 颜色值 |
+| android:gravity | 子视图对齐方式 | center：居中<br>center_vertical：垂直居中<br>center_horizontal：水平居中<br>left：左对齐<br>right：右对齐<br>top：上对齐<br>bottom：下对齐 |
+| android:layout_gravity | 子视图在父容器对齐方式 | center：居中<br>center_vertical：垂直居中<br>center_horizontal：水平居中<br>left：左对齐<br>right：右对齐<br>top：上对齐<br>bottom：下对齐 |
+| android:layout_marginTop | 设置子视图与父容器顶部的距离 | 单位：dp |
+| android:layout_marginBottom | 设置子视图与父容器底部的距离 | 单位：dp |
+| android:layout_marginLeft | 设置子视图与父容器左侧的距离 | 单位：dp |
+| android:layout_marginRight | 设置子视图与父容器右侧的距离 | 单位：dp |
+| ***android:divider*** | 设置ListView的分割线 | drawable资源文件 |
+| android:showDividers | 设置ListView的分割线显示位置 | none：不显示；beginning：开头；middle：中间；end：结尾 |
+| **android:weightSum** | 设置LinearLayout的权重和 | float类型 |
+
+* 分割线示例
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+
+    这是一个Android Drawable资源文件，用于定义分割线
+
+    主要功能：
+    - 创建一个1x1像素的红色矩形drawable
+    - 用于创建分割线
+
+    属性说明：
+    - android:shape="rectangle": 指定形状为矩形
+    - android:width="1dp" 和 android:height="1dp": 设置形状尺寸为1x1像素
+    - android:color="#FF0000": 设置填充颜色为纯红色
+
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <size android:width="1dp" android:height="1dp"/>
+    <solid android:color="#FF0000"/>
+
+</shape>
+~~~
+
+#### 子视图属性
+| 属性 | 描述 | 参数说明 |
+| --- | --- | --- |
+| android:layout_gravity | 设置子视图在父视图中的对齐方式 | left:左对齐<br>right:右对齐<br>center:居中对齐<br>fill:填充父视图 |
+| android:layout_weight | 设置子视图在父视图中的权重 | 根据父视图的weightSum值来分配空间，默认weightSum为4，**需要将layout_width或layout_height设置为0dp** |
+
+### RelativeLayout
+
+[回到目录](#目录)
+
+是基于相对位置关系的布局容器，通过定义子视图相对于父容器或同级视图的位置来组织界面元素
+
+#### 子视图属性
+
+1. 对齐父容器边
+
+| 描述 | 属性 | 参数说明 |
+| --- | --- | --- |
+| android:layout_alignParentStart | 设置视图与父容器起始边对齐 | true:启用左对齐<br>false:禁用左对齐 |
+| android:layout_alignParentEnd | 设置视图与父容器结束边对齐 | true:启用右对齐<br>false:禁用右对齐 |
+| android:layout_alignParentTop | 设置视图与父容器顶部对齐 | true:启用顶部对齐<br>false:禁用顶部对齐 |
+| android:layout_alignParentBottom | 设置视图与父容器底部对齐 | true:启用底部对齐<br>false:禁用底部对齐 |
+
+2. 方向位置
+
+| 描述 | 属性 | 参数说明 |
+| --- | --- | --- |
+| android:layout_toRightOf/ android:layout_toEndOf | 设置视图相对于某个视图的右侧对齐 | @+id/viewId:指定某个视图的id |
+| android:layout_toLeftOf/ android:layout_toStartOf | 设置视图相对于某个视图的左侧对齐 | @+id/viewId:指定某个视图的id |
+| android:layout_below | 设置视图相对于某个视图的底部对齐 | @+id/viewId:指定某个视图的id |
+| android:layout_above | 设置视图相对于某个视图的顶部对齐 | @+id/viewId:指定某个视图的id |
+
+3. 边缘对齐
+
+| 描述 | 属性 | 参数说明 |
+| --- | --- | --- |
+| android:layout_alignTop | 设置视图与某个视图的顶部对齐 | @+id/viewId:指定某个视图的id |
+| android:layout_alignBottom | 设置视图与某个视图的底部对齐 | @+id/viewId:指定某个视图的id |
+| android:layout_alignLeft | 设置视图与某个视图的左侧对齐 | @+id/viewId:指定某个视图的id |
+| android:layout_alignRight | 设置视图与某个视图的右侧对齐 | @+id/viewId:指定某个视图的id |
+| android:layout_baseline | 设置视图的基线与指定视图的基线对齐 | @+id/viewId:指定某个视图的id |
+
+4. 居中控制
+
+| 描述 | 属性 | 参数说明 |
+| --- | --- | --- |
+| android:layout_centerInParent | 设置视图在父容器中居中显示 | true:启用居中显示<br>false:禁用居中显示 |
+| layout_centerHorizontal | 垂直居中 | true:启用垂直居中<br>false:禁用垂直居中 |
+| layout_centerVertical | 水平居中 | true:启用水平居中<br>false:禁用水平居中 |
+
+### ConstraintLayout
+
+[回到目录](#目录)
 
 
 
