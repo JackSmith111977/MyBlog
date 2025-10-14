@@ -67,13 +67,16 @@ categories:
     - [测量和布局](#测量和布局)
     - [FrameLayout](#framelayout)
       - [自身属性](#自身属性)
-      - [子视图排列属性](#子视图排列属性)
+      - [子视图属性](#子视图属性)
     - [LinearLayout](#linearlayout)
       - [自身属性](#自身属性-1)
-      - [子视图属性](#子视图属性)
-    - [RelativeLayout](#relativelayout)
       - [子视图属性](#子视图属性-1)
+    - [RelativeLayout](#relativelayout)
+      - [子视图属性](#子视图属性-2)
     - [ConstraintLayout](#constraintlayout)
+      - [子视图属性](#子视图属性-3)
+    - [总结](#总结)
+  - [创建自定义属性](#创建自定义属性)
 
 ## 前置条件
 * [安装Android Studio](https://developer.android.google.cn/studio/index.html?hl=ro)
@@ -1314,7 +1317,7 @@ Android的布局过程是ui构建的核心环节，本质是 **视图树(View Hi
 | android:foreground | 视图前景 | 颜色值:颜色值<br>图片:图片路径 |
 | android:foregroundGravity | 视图前景对齐方式 | left:左对齐<br>right:右对齐<br>center:居中对齐<br>top:顶部对齐<br>bottom:底部对齐 |
 
-#### 子视图排列属性
+#### 子视图属性
 
 子视图默认排列在FrameLayout的左上角，且允许堆叠
 最终位置为对其方式并加上边距值后的位置
@@ -1329,7 +1332,7 @@ Android的布局过程是ui构建的核心环节，本质是 **视图树(View Hi
 
 ### LinearLayout
 
-核心优势在于方向性排列和权重分配，适合构建列表、表单等结构性界面，但嵌套或频繁使用layout_weight属性可能会导致性能问题。
+核心优势在于**方向性排列**和**权重分配**，适合构建列表、表单等结构性界面，但嵌套或频繁使用layout_weight属性可能会导致**性能问题**。
 
 #### 自身属性
 | 属性 | 描述 | 参数说明 |
@@ -1426,6 +1429,178 @@ Android的布局过程是ui构建的核心环节，本质是 **视图树(View Hi
 
 [回到目录](#目录)
 
+用于构建复杂界面的灵活布局容器，通过 **约束关系(Constraint)** 精准控制子视图的相对位置和尺寸，相比传统布局能有效减少嵌套层级，**提升性能**
+
+#### 子视图属性
+
+1. 基本约束属性
+    * 水平方向
+        
+        | 属性 | 描述 | 参数说明 |
+        | --- | --- | --- |
+        | app:layout_constraintLeft_toLeftOf | 左对齐 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintLeft_toRightOf | 设置视图左侧在目标右侧 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintRight_toLeftOf | 设置视图右侧在目标左侧 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintRight_toRightOf | 右对齐 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintStart_toStartOf | 起始边对齐 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintStart_toEndOf | 起始边在目标结束边 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintEnd_toStartOf | 结束边在目标起始边 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintEnd_toEndOf | 结束边对齐 | @+id/viewId:指定某个视图的id |
+
+    * 垂直方向
+
+        | 属性 | 描述 | 参数说明 |
+        | --- | --- | --- |
+        | app:layout_constraintTop_toTopOf | 顶部对齐 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintTop_toBottomOf | 顶部在目标底部 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintBottom_toTopOf | 底部在目标顶部 | @+id/viewId:指定某个视图的id |
+        | app:layout_constraintBottom_toBottomOf | 底部对齐 | @+id/viewId:指定某个视图的id |
+
+    * 特殊对齐
+
+        | 属性 | 描述 | 参数说明 |
+        | --- | --- | --- |
+        | app:layout_constraintBaseline_toBaselineOf | 文本基线对齐 | @+id/viewId:指定某个视图的id |
+
+2. 边距尺寸约束
+    * 常规边距
+        
+        | 属性 | 描述 | 参数说明 |
+        | --- | --- | --- |
+        | android:layout_marginStart | 设置视图起始边距 | 0dp:无边距<br>1dp:1dp边距 |
+        | android:layout_marginEnd | 设置视图结束边距 | 0dp:无边距<br>1dp:1dp边距 |
+        | android:layout_marginTop | 顶部边距 | 0dp:无边距<br>1dp:1dp边距 |
+        | android:layout_marginBottom | 底部边距 | 0dp:无边距<br>1dp:1dp边距 |
+        | android:layout_marginLeft | 左侧边距 | 0dp:无边距<br>1dp:1dp边距 |
+        | android:layout_marginRight | 右侧边距 | 0dp:无边距<br>1dp:1dp边距 |
+
+    * 目标隐藏时的边距(约束目标变为GONE时生效)
+
+        | 属性 | 描述 | 参数说明 |
+        | --- | --- | --- |
+        | app:layout_goneMarginRight | 目标隐藏时右侧边距 | 0dp:无边距<br>1dp:1dp边距<br>若目标隐藏时不移动，则**设置值 = 目标宽度 + 目标margin** |
+        | app:layout_goneMarginLeft | 目标隐藏时左侧边距 | 0dp:无边距<br>1dp:1dp边距<br>若目标隐藏时不移动，则**设置值 = 目标宽度 + 目标margin** |
+        | app:layout_goneMarginTop | 顶部边距 | 0dp:无边距<br>1dp:1dp边距<br>若目标隐藏时不移动，则**设置值 = 目标高度 + 目标margin** |
+        | app:layout_goneMarginBottom | 底部边距 | 0dp:无边距<br>1dp:1dp边距<br>若目标隐藏时不移动，则**设置值 = 目标高度 + 目标margin** |
+        | app:layout_goneMarginStart | 启动边距 | 0dp:无边距<br>1dp:1dp边距<br>若目标隐藏时不移动，则**设置值 = 宽度 + 目标margin** |
+        | app:layout_goneMarginEnd | 结束边距 | 0dp:无边距<br>1dp:1dp边距<br>若目标隐藏时不移动，则**设置值 = 宽度 + 目标margin** |
+
+    * 特殊尺寸值：0dp(即MATCH_CONSTRAINT，根据约束条件拓展)；wrap_content(自适应内容，可配合强制约束)
+    * 比例与限制
+
+        | 属性 | 描述 | 参数说明 |
+        | --- | --- | --- |
+        | app:layout_constraintDimensionRatio | 宽高比 | 1:1:宽高比为1:1 |
+        | app:layout_constrainedWidth | 强制宽度限制 | true:宽度限制<br>false:宽度不限制 |
+        | app:layout_constrainedHeight | 强制高度限制 | true:高度限制<br>false:高度不限制 |
+        | android:minWidth | 设置视图最小宽度 | 0dp:无最小宽度 |
+        | android:minHeight | 设置视图最小高度 | 0dp:无最小高度 |
+        | android:maxWidth | 设置视图最大宽度 | 0dp:无最大宽度 |
+        | android:maxHeight | 设置视图最大高度 | 0dp:无最大高度 |
+
+3. 链式布局
+
+第一个元素的app:layout_constraintLeft_toLeftOf属性为parent，最后一个元素的app:layout_constraintRight_toRightOf属性为parent，中间的元素的app:layout_constraintLeft_toRightOf属性为前一个元素，app:layout_constraintRight_toLeftOf属性为后一个元素，即**双向连接**
+
+| 属性 | 描述 | 参数说明 |
+| --- | --- | --- |
+| app:layout_constraintHorizontal_chainStyle | 水平链式布局样式 | spread:均分<br>packed:均分且居中紧凑<br>spread_inside:均分且两侧紧贴父容器 |
+
+~~~xml
+<!--链式布局-->
+    <!--spread-->
+    <!--
+        Button控件button5的布局定义
+        该按钮参与水平链式约束，与button6、button7形成水平链条
+        左侧对齐父容器左侧，右侧对齐到button6的左侧
+        顶部位置在ratio控件的下方
+    -->
+    <Button
+        android:id="@+id/button5"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="button5"
+        app:layout_constraintHorizontal_chainStyle="spread"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/button6"
+        app:layout_constraintTop_toBottomOf="@id/ratio"/>
+
+    <!--
+        Button控件button6的布局定义
+        该按钮是水平链条的中间元素
+        左侧对齐到button5的右侧，右侧对齐到button7的左侧
+        顶部位置与button5对齐
+    -->
+    <Button
+        android:id="@+id/button6"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="button6"
+        app:layout_constraintLeft_toRightOf="@+id/button5"
+        app:layout_constraintRight_toLeftOf="@id/button7"
+        app:layout_constraintTop_toTopOf="@id/button5"/>
+
+    <!--
+        Button控件button7的布局定义
+        该按钮是水平链条的最后一个元素
+        左侧对齐到button6的右侧，右侧对齐到父容器右侧
+        顶部位置与button5对齐
+    -->
+    <Button
+        android:id="@+id/button7"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="button7"
+        app:layout_constraintTop_toTopOf="@id/button5"
+        app:layout_constraintLeft_toRightOf="@id/button6"
+        app:layout_constraintRight_toRightOf="parent"/>
+~~~
+
+4. 权重分配
+
+通过结合链式布局和权重属性，实现权重分配，父容器默认权重总和为4
+
+此外，也可以通过结合layout_constraintLeft_toLeftOf、layout_constraintRight_toRightOf属性和偏移，实现按比例确定位置
+
+| 属性 | 描述 | 参数说明 |
+| --- | --- | --- |
+| app:layout_constraintHorizontal_weight | 水平权重分配 | 0:不分配权重<br>1:分配权重 |
+| app:layout_constraintVertical_weight | 垂直权重分配 | 0:不分配权重<br>1:分配权重 |
+| app:layout_constraintHorizontal_bias | 水平偏移 | 0:不偏移<br>0.5:居中 |
+
+5. 参考线标签
+
+可以通过参考线标签，进一步实现复杂布局
+
+~~~xml
+    <!--
+        Guideline控件用于在ConstraintLayout中创建参考线，帮助布局对齐
+        android:id: 控件的唯一标识符
+        android:layout_width: 布局宽度，wrap_content表示根据内容自适应
+        android:layout_height: 布局高度，wrap_content表示根据内容自适应
+        android:orientation: 参考线方向，vertical表示垂直方向
+        app:layout_constraintGuide_begin: 参考线距离父容器开始位置的距离，100dp表示距离左边100dp处
+    -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_begin="100dp"/>
+~~~
+
+### 总结
+
+| 特性 | LinearLayout | FrameLayout | RelativeLayout | ConstraintLayout |
+| --- | --- | --- | --- | --- |
+| 布局逻辑 | 线性方向排列 | 视图堆叠 | 相对其他视图/父容器定位 | 视图间约束关系 |
+| 嵌套 | 易嵌套过深 | 极少嵌套 | 可减少嵌套 | 显著减少嵌套 |
+| 性能 | 嵌套多层时差 | 最优（简单） | 较差（两次测量） | 最优（复杂布局） |
+| 适用场景 | 简单列表/等分 | 叠加视图 | 中等复杂的相对定位 | 高复杂度布局 |
+| 学习曲线 | 简单 | 简单 | 中等 | 较高 |
+
+
+## 创建自定义属性
 
 
 
