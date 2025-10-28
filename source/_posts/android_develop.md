@@ -101,6 +101,13 @@ categories:
     - [ContentProvider](#contentprovider-1)
       - [工作原理](#工作原理)
       - [ContentProvider的使用](#contentprovider的使用)
+  - [异步交互](#异步交互)
+    - [handler](#handler)
+      - [核心组件和职责](#核心组件和职责)
+      - [使用步骤](#使用步骤)
+        - [使用 sendMessage](#使用-sendmessage)
+        - [使用 post](#使用-post)
+        - [安全的最佳实践](#安全的最佳实践)
 
 ## 前置条件
 * [安装Android Studio](https://developer.android.google.cn/studio/index.html?hl=ro)
@@ -2865,6 +2872,261 @@ class MainActivity : AppCompatActivity() {
     }
 }
 ~~~
+
+## 异步交互
+
+### handler
+
+#### 核心组件和职责
+
+| 组件 | 职责 | 类比 |
+| --- | --- | --- |
+| Handler | **​​发送​​** 和 **​​处理​​** 消息| 公司的**​​快递员**​​，既负责把包裹寄出，也负责接收并处理送来的包裹。|
+| Message | 消息的载体，可以在线程间传递数据 | ​**​包裹**​​，里面装着要传递的信息或任务|
+| MessageQueue | 一个按时间排序的​**​消息队列**​​，用于存储所有通过 Handler 发送的消息 | ​**​快递分拣中心**​​，所有寄出的包裹都暂时存放在这里，排队等待发货 |
+| Looper | 运行 MessageQueue 的线程，不断循环，从 MessageQueue 中依次取出消息，并分发给对应的 Handler 处理 | **分拣员/送货员**​​，不停地从分拣中心取包裹，并按照地址交给对应的快递员 |
+
+一个线程通常只有一个 MessageQueue和一个 Looper，但可以有多个 Handler对象
+
+#### 使用步骤
+
+##### 使用 sendMessage
+
+在 Activity 或 Fragment 中（通常在主线程），创建 Handler 并指定如何处理消息。
+
+* 步骤1：创建Handler对象，关联主线程Looper对象，并重写handleMessage方法
+* 步骤2：重写handleMessage方法，处理消息
+* 步骤3：创建线程模拟耗时操作
+* 步骤4：构造消息对象发送到主线程
+
+完整类实现
+
+~~~kotlin
+package com.kei.handlerdemo
+
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.Message
+import android.widget.TextView
+import androidx.activity.ComponentActivity
+
+/**
+ * 发送消息Activity
+ * 用于演示如何在子线程中执行耗时操作，并通过Handler将结果传递到主线程更新UI
+ */
+class SendMessageActivity : ComponentActivity() {
+
+    private lateinit var textView: TextView
+
+    /**
+     * 主线程Handler，用于处理来自子线程的消息
+     * 使用Looper.getMainLooper()确保Handler在主线程中处理消息
+     * Looper能够自动处理到达的消息，并调用handleMessage方法进行处理
+     */
+    // 步骤1： 创建Handler对象，关联主线程Looper对象，并重写handleMessage方法
+    private val mainHandler = object : Handler(Looper.getMainLooper()){
+        /**
+         * 处理从子线程发送过来的消息
+         * @param msg 从子线程发送过来的消息对象
+         */
+        override fun handleMessage(msg: Message){
+            // 步骤2：在这里处理消息，此方法运行在主线程，可以安全更新ui
+            // 根据消息类型处理不同的业务逻辑
+            when (msg.what){
+                1 -> {
+                    // 从msg.obj中获取数据
+                    // 更新textView显示加载结果
+                    textView.text = msg.obj as String
+                }
+                2 -> {
+                    // 也可以使用arg1，arg2等传递简单整型数据
+                    // 处理进度信息（当前未使用）
+                    val progress = msg.arg1
+                    // 例如处理更新进度条
+                }
+            }
+        }
+    }
+
+    /**
+     * Activity创建时的回调方法
+     * @param savedInstanceState 用于恢复Activity状态的Bundle对象
+     */
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_send_message)
+        
+        // 初始化textView控件
+        textView = findViewById(R.id.textView)
+
+        // 创建并启动一个子线程来模拟耗时操作
+        Thread{
+            // 步骤3：模拟耗时操作，睡眠2秒
+            Thread.sleep(2000)
+            val result = "数据加载完成"
+
+            // 步骤4：构造消息对象并发送到主线程
+            val message = mainHandler.obtainMessage() // 使用obtainMessage() 复用消息对象
+            message.what = 1 // 消息标识
+            message.obj = result // 消息内容
+            mainHandler.sendMessage(message) // 发送消息
+        }.start()
+    }
+}
+~~~
+
+##### 使用 post
+
+* 步骤1: 创建Handler对象（关联主线程Looper）
+* 步骤2: 在子线程中执行耗时操作
+* 步骤3：使用post()方法，将UI更新操作直接投递到主线程执行
+
+完整类实现
+
+~~~kotlin
+package com.kei.handlerdemo
+
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.widget.TextView
+import androidx.activity.ComponentActivity
+
+/**
+ * PostActivity类用于演示Handler的post和postDelayed方法的使用
+ * 通过子线程执行耗时操作后，使用Handler.post()方法将UI更新操作切换到主线程执行
+ */
+class PostActivity: ComponentActivity() {
+
+    private lateinit var textView: TextView
+
+    /**
+     * 主线程Handler，用于将Runnable切换到主线程执行
+     * 使用Looper.getMainLooper()确保Handler在主线程中处理消息
+     */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Activity创建时的回调方法
+     * @param savedInstanceState 用于恢复Activity状态的Bundle对象
+     */
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContentView(R.layout.activity_post)
+
+        textView = findViewById(R.id.tv_post)
+
+        // 创建并启动一个子线程来模拟耗时操作
+        Thread{
+            // 模拟耗时操作，睡眠2秒
+            Thread.sleep(2000)
+            val result = "数据加载完成"
+
+            // 使用Handler.post()将UI更新操作切换到主线程执行
+            mainHandler.post {
+                textView.text = result
+            }
+        }.start()
+    }
+
+    /**
+     * 延迟任务方法，使用Handler.postDelayed()延迟执行UI更新操作
+     * 在指定延迟时间后将Runnable切换到主线程执行
+     */
+    private fun delayTask(){
+        mainHandler.postDelayed({
+            textView.text = "延迟2秒执行"
+        }, 2000)
+    }
+}
+~~~
+
+##### 安全的最佳实践
+
+* 将 Handler 定义为静态内部类，并不再持有外部类的强引用
+* 使用 WeakReference 弱引用 Activity
+* 在处理消息前，先判断 Activity 是否还存在
+* 在 Activity 销毁时，移除所有未处理的消息和回调
+
+完整类实现
+
+~~~kotlin
+package com.kei.handlerdemo
+
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.Message
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import java.lang.ref.WeakReference
+
+class SafeHandlerActivity : AppCompatActivity() {
+    private lateinit var textView: TextView
+    private lateinit var safeHandler: SafeHandler // 使用安全的 Handler
+
+    // 1. 将 Handler 定义为静态内部类，并不再持有外部类的强引用
+    class SafeHandler(activity: SafeHandlerActivity) : Handler(Looper.getMainLooper()) {
+        // 2. 使用 WeakReference 弱引用 Activity
+        private val activityWeakReference: WeakReference<SafeHandlerActivity> = WeakReference(activity)
+
+        override fun handleMessage(msg: Message) {
+            // 3. 在处理消息前，先判断 Activity 是否还存在
+            val activity = activityWeakReference.get()
+            if (activity != null) { // 如果 Activity 没被回收
+                // 安全地更新 UI
+                when (msg.what) {
+                    MSG_UPDATE_TEXT -> {
+                        activity.textView.text = msg.obj as? String
+                    }
+                    // 处理其他类型的消息...
+                }
+            }
+            // 如果 Activity 为 null（已被回收），则不执行任何操作
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_safe_handler)
+        textView = findViewById(R.id.tv_safe_handler)
+
+        // 初始化安全的 Handler
+        safeHandler = SafeHandler(this)
+
+        // 在子线程中工作
+        Thread {
+            // 模拟耗时任务
+            Thread.sleep(1500)
+            val result = "数据加载完毕！"
+
+            // 创建并发送消息
+            val message = safeHandler.obtainMessage().apply {
+                what = MSG_UPDATE_TEXT
+                obj = result
+            }
+            safeHandler.sendMessage(message)
+        }.start()
+    }
+
+    // 4. 在 Activity 销毁时，移除所有未处理的消息和回调
+    override fun onDestroy() {
+        super.onDestroy()
+        safeHandler.removeCallbacksAndMessages(null) // 参数为 null 表示移除所有
+    }
+
+    companion object {
+        // 定义消息类型常量，便于管理
+        private const val MSG_UPDATE_TEXT = 1
+    }
+}
+~~~
+
+
+
+
 
 
 
