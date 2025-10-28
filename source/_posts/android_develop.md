@@ -108,6 +108,8 @@ categories:
         - [使用 sendMessage](#使用-sendmessage)
         - [使用 post](#使用-post)
         - [安全的最佳实践](#安全的最佳实践)
+    - [Coroutines 协程](#coroutines-协程)
+      - [协程使用步骤](#协程使用步骤)
 
 ## 前置条件
 * [安装Android Studio](https://developer.android.google.cn/studio/index.html?hl=ro)
@@ -3124,6 +3126,123 @@ class SafeHandlerActivity : AppCompatActivity() {
 }
 ~~~
 
+### Coroutines 协程
+
+**Kotlin协程**是处理异步操作的推荐方案，它能帮你用更直观的代码替代复杂的回调，并高效管理后台任务
+
+#### 协程使用步骤
+
+1. 前置工作：添加依赖
+
+~~~kotlin
+dependencies {
+    // 协程核心库
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // 为ViewModel提供viewModelScope
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
+    // 为Activity/Fragment提供lifecycleScope
+    implementation(libs.androidx.lifecycle.runtime.ktx.v280)
+}
+~~~
+
+2. 在ViewModel中使用协程 文件位置：app/src/main/java/com/yourpackage/MyViewModel.kt 创建一个MyViewModel类，从网络获取数据并更新ui
+
+~~~kotlin
+class MyViewModel(private val repository: MyRepository) : ViewModel() {
+
+    // 使用LiveData暴露UI状态
+    private val _data = MutableLiveData<String>()
+    val data: LiveData<String> = _data
+
+    private val _isLoading = MutableLiveData<Boolean>()
+    val isLoading: LiveData<Boolean> = _isLoading
+
+    // 触发数据获取
+    fun fetchData() {
+        // 在viewModelScope内启动协程
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // 执行挂起函数，获取数据
+                val result = repository.fetchDataFromNetwork()
+                _data.value = result
+            } catch (e: Exception) {
+                // 处理错误
+                _data.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+}
+
+// 假设的Repository，包含挂起函数
+class MyRepository {
+    // 声明为挂起函数，表明其内部执行耗时操作
+    suspend fun fetchDataFromNetwork(): String {
+        // 使用withContext确保耗时操作在IO线程池进行，保证主线程安全
+        return withContext(Dispatchers.IO) {
+            // 模拟网络请求，如使用Retrofit（Retrofit本身已支持挂起函数）
+            kotlinx.coroutines.delay(2000) // 模拟2秒网络延迟
+            "Hello from Network!"
+        }
+    }
+}
+~~~
+
+* **viewModelScope.launch​​:** 在ViewModel的作用域内**启动一个新的协程**，默认在​​主线程​​开始执行。这使得你可以在协程内直接更新UI状态（如设置_isLoading.value）
+
+* ​**​withContext(Dispatchers.IO)​​:** 这是一个关键的**挂起函数**。它将协程的执行上下文切换到为I/O操作优化的线程池，执行耗时的网络或数据库操作。操作完成后，协程会自动切回原来的线程（此处是主线程）这使得fetchDataFromNetwork函数是​​主线程安全​​的，意味着你可以安全地从主线程调用它。
+
+3. 在Activity/Fragment中处理UI交互 文件位置：app/src/main/java/com/yourpackage/MyActivity.kt
+
+~~~kotlin
+class MyActivity : AppCompatActivity() { 
+    private val viewModel: MyViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        // 观察LiveData，当数据变化时更新UI
+        viewModel.data.observe(this) { data ->
+            // 更新TextView等UI组件
+            textView.text = data
+        }
+
+        viewModel.isLoading.observe(this) { isLoading ->
+            progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        }
+
+        // 点击按钮触发数据获取
+        button.setOnClickListener {
+            viewModel.fetchData()
+        }
+
+        // 使用lifecycleScope执行与界面生命周期相关的协程任务
+        lifecycleScope.launchWhenResumed {
+            // 此协程只会在Activity处于Resumed状态时执行
+            // 适合执行一些需要界面完全可见才进行的操作
+        }
+    }
+}
+~~~
+
+4. 处理并行任务
+
+~~~kotlin
+// 在ViewModel或Repository中
+suspend fun fetchDataInParallel(): List<String> =
+    kotlinx.coroutines.coroutineScope { // 创建一个协程作用域
+        val deferredOne = async { repository.fetchFromSource1() } // 启动第一个异步任务
+        val deferredTwo = async { repository.fetchFromSource2() } // 启动第二个异步任务
+
+        // 等待两个任务都完成并返回结果
+        val result1 = deferredOne.await()
+        val result2 = deferredTwo.await()
+        listOf(result1, result2)
+    }
+~~~
 
 
 
