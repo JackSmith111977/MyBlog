@@ -15,6 +15,9 @@ categories:
   - [目录](#目录)
   - [kizitonwose/CalendarView 框架的使用](#kizitonwosecalendarview-框架的使用)
     - [基本使用](#基本使用)
+    - [周视图功能细分](#周视图功能细分)
+      - [添加星期标题](#添加星期标题)
+      - [添加日期选择功能](#添加日期选择功能)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -22,6 +25,8 @@ categories:
 [回到目录](#目录)
 
 ### 基本使用
+
+[回到上一级](#kizitonwosecalendarview-框架的使用)
 
 1. 添加依赖
 在 gradle/libs.versions.toml 中：
@@ -230,9 +235,207 @@ class WeekViewFragment: Fragment() {
 
 至此，就完成了基于kizitonwose/CalendarView的日历视图的基本使用
 
+### 周视图功能细分
 
+[回到上一级](#kizitonwosecalendarview-框架的使用)
 
+#### 添加星期标题
 
+1. 在layout中创建calendar_day_title_text.xml定义**单个**星期标题的样式
+
+~~~xml
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:layout_gravity="center"
+    android:gravity="center"
+    android:padding="8dp"
+    android:textSize="12sp" />
+~~~
+
+2. 同目录下创建calendar_day_titles_container.xml，使用**水平线性布局**，包含七个上一步创建的星期标题，代表一周七天
+
+~~~xml
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:weightSum="7"
+    android:orientation="horizontal">
+
+    <include layout="@layout/calendar_day_title_text"/>
+    <!-- 重复6次 -->
+</LinearLayout>
+~~~
+
+3. 将上一步的容器引入fragment_week_view.xml中
+
+~~~xml
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical">
+
+    <include
+        android:id="@+id/titlesContainer"
+        layout="@layout/calendar_day_titles_container" />
+
+    <!-- 周视图日历控件，用于显示一周的日期 -->
+    <com.kizitonwose.calendar.view.WeekCalendarView
+        android:id="@+id/week_calendar_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:cv_dayViewResource="@layout/calendar_day_layout"/>
+
+</LinearLayout>
+~~~
+
+4. 在 WeekViewFragment.kt 中，通过 setDayOfWeekTitles() 方法动态设置星期标题文本
+
+~~~kotlin
+...
+private fun setupWeekView(){
+        ...
+        
+        val weekCalendarView = binding.weekCalendarView
+        weekCalendarView.dayBinder = weekViewBinder
+        
+        // 获取标题容器并设置星期标题
+        setDayOfWeekTitles()
+        
+        ...
+    }
+
+private fun setDayOfWeekTitles() {
+    // 获取标题容器
+    val titlesContainer = binding.root.findViewById<ViewGroup>(R.id.titlesContainer)
+    
+    // 遍历每个标题容器并设置文本
+    titlesContainer.children
+        .map { it as TextView }
+        .forEachIndexed { index, textView ->
+            val dayOfWeek = daysOfWeek()[index]
+            val title = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+            textView.text = title
+            textView.gravity = Gravity.CENTER
+        }
+}
+~~~
+
+至此，添加星期标题功能完成
+
+#### 添加日期选择功能
+
+1. 在presentation/calendarContainer/下的DayViewContainer.kt中**添加**点击监听器
+
+~~~kotlin
+class DayViewContainer(view: View) : ViewContainer(view) {
+    ...
+
+    // 添加一个函数来设置点击监听器
+    fun setOnClickListener(listener: (View) -> Unit) {
+        textView.setOnClickListener(listener)
+    }
+
+    ...
+}
+~~~
+
+其中listener参数是一个**函数类型**，是以View为参数，且返回值为Unit(void,即无返回值)的函数
+
+2. 在presentation/calendarBinder/WeekViewBinder.kt中**设置**点击监听器
+
+~~~kotlin
+class WeekViewBinder: WeekDayBinder<DayViewContainer> {
+    
+    ...
+
+    override fun bind(
+        container: DayViewContainer,
+        data: WeekDay
+    ) {
+        container.textView.text = data.date.dayOfMonth.toString()
+
+        // 设置点击监听器
+        container.setOnClickListener {
+            selectedDate = data.date
+            onDateClickListener?.invoke(data)
+        }
+
+        ...
+    }
+}
+~~~
+
+其中`?.invoke` 是一个**可选调用**，用于调用一个可能为 null 的函数。如果函数不为 null，则调用它，否则不执行任何操作。
+这里只有点击日期时才触发点击回调data，并更新选中日期的视觉效果
+
+3. 在 presentation/ui/calendar/WeekViewFragment.kt 中设置点击回调
+
+~~~kotlin
+class WeekViewFragment: Fragment() {
+    
+    ...
+
+    private fun setupWeekView(){
+        val currentDate = LocalDate.now()
+        
+        // 步骤3：在Fragment中设置点击回调
+        val weekViewBinder = WeekViewBinder()
+        weekViewBinder.onDateClickListener = { weekDay ->
+            // 处理点击事件
+            Toast.makeText(context, "Clicked: ${weekDay.date}", Toast.LENGTH_SHORT).show()
+            // 更新选中日期的视觉效果
+            weekViewBinder.selectDate(weekDay.date)
+            // 通知日历重新绘制以更新选中状态
+            binding.weekCalendarView.notifyCalendarChanged()
+        }
+        
+        val weekCalendarView = binding.weekCalendarView
+        weekCalendarView.dayBinder = weekViewBinder
+        
+        ...
+
+    }
+}
+~~~
+
+4. 在presentation/calendarBinder/WeekViewBinder.kt中添加选中日期的追踪
+
+~~~kotlin
+class WeekViewBinder: WeekDayBinder<DayViewContainer> {
+
+    ...
+
+    override fun bind(
+        container: DayViewContainer,
+        data: WeekDay
+    ) {
+        container.textView.text = data.date.dayOfMonth.toString()
+
+        // 设置点击监听器
+        container.setOnClickListener {
+            selectedDate = data.date
+            onDateClickListener?.invoke(data)
+        }
+
+        // 更新选中的视觉效果
+        if (selectedDate == data.date) {
+            container.textView.setBackgroundResource(R.drawable.modern_selected_date_ripple)
+            // 选中日期使用白色文字以便在洋红色背景上清晰可见
+            container.textView.setTextColor(Color.WHITE)
+        } else {
+            container.textView.background = null
+            // 非选中日期使用黑色文字
+            container.textView.setTextColor(Color.BLACK)
+        }
+    }
+}
+~~~
+
+这里的背景资源需要自行创建
 
 
 
