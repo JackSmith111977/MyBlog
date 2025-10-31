@@ -18,6 +18,9 @@ categories:
     - [周视图功能细分](#周视图功能细分)
       - [添加星期标题](#添加星期标题)
       - [添加日期选择功能](#添加日期选择功能)
+      - [添加今日默认背景](#添加今日默认背景)
+      - [周的滚动切换](#周的滚动切换)
+      - [添加年月标题](#添加年月标题)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -437,6 +440,193 @@ class WeekViewBinder: WeekDayBinder<DayViewContainer> {
 
 这里的背景资源需要自行创建
 
+#### 添加今日默认背景
+
+[回到上一级](#周视图功能细分)
+
+1. 在presentation/calendarBinder/WeekViewBinder.kt的bind()方法中获取今天的日期
+
+~~~kotlin
+val today = LocalDate.now()
+~~~
+
+2. 在presentation/calendarBinder/WeekViewBinder.kt的bind()方法中判断当前日期是否为今天，如果是则设置背景
+
+完整方法
+~~~kotlin
+override fun bind(
+        container: DayViewContainer,
+        data: WeekDay
+    ) {
+        container.textView.text = data.date.dayOfMonth.toString()
+
+        // 设置点击监听器
+        container.setOnClickListener {
+            selectedDate = data.date
+            onDateClickListener?.invoke(data)
+        }
+
+        // 获取今天的日期
+        val today = LocalDate.now()
+        
+        // 更新选中的视觉效果
+        if (selectedDate == data.date) {
+            container.textView.setBackgroundResource(R.drawable.modern_selected_date_ripple)
+            // 选中日期使用白色文字以便在洋红色背景上清晰可见
+            container.textView.setTextColor(Color.WHITE)
+        } else if (data.date == today) {
+            // 今天的日期使用与选中日期相同形状的背景高亮显示
+            container.textView.setBackgroundResource(R.drawable.modern_today_background)
+            container.textView.setTextColor(Color.BLACK)
+        } else {
+            container.textView.background = null
+            // 非选中日期使用黑色文字
+            container.textView.setTextColor(Color.BLACK)
+        }
+    }
+~~~
+
+背景资源需要自行创建
+
+#### 周的滚动切换
+
+[回到上一级](#周视图功能细分)
+
+1. 在WeekViewFragment.kt中的setupWeekView()方法内添加滚动监听器，并实现更新逻辑
+
+* 添加**滚动监听器**
+~~~kotlin
+private fun setupWeekView(){
+        ...
+        
+        val weekCalendarView = binding.weekCalendarView
+        weekCalendarView.dayBinder = weekViewBinder
+
+        // 添加滚动监听器以同步星期标题
+        weekCalendarView.weekScrollListener = { weekStart ->
+            // 更新星期标题以匹配当前周
+            updateDayOfWeekTitles(weekStart.days.first().date)
+            // 更新年月标题
+            // updateMonthYearHeader(weekStart.days.first().date)
+        }
+
+        // 获取标题容器并设置星期标题
+        setDayOfWeekTitles()
+        
+        ...
+    }
+~~~
+
+* 实现更新逻辑 **updateDayOfWeekTitles()**
+~~~kotlin
+/**
+     * 更新星期标题
+     *
+     * @param date 当前周的起始日期
+     */
+    private fun updateDayOfWeekTitles(date: LocalDate) {
+        val titlesContainer = binding.root.findViewById<ViewGroup>(R.id.titlesContainer)
+
+        // 计算指定日期所在周到起始日期
+        val firstDayOfWeek = firstDayOfWeekFromLocale()
+        val weekStart = date.minusDays(date.dayOfWeek.ordinal.toLong())
+            .plusDays(firstDayOfWeek.ordinal.toLong())
+            .minusDays(if (firstDayOfWeek.ordinal <= date.dayOfWeek.ordinal) 0 else 7)
+
+        // 更新每个标题党文本
+        titlesContainer.children
+            .map { it as TextView }
+            .forEachIndexed { index, textView ->
+                val currentDay = weekStart.plusDays(index.toLong())
+                val title = currentDay.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                textView.text = title
+            }
+    }
+~~~
+
+其中,计算逻辑：
+  1. date.dayOfWeek.ordinal：获取指定日期是星期几（星期一为0，星期日为6）
+  2. date.minusDays(date.dayOfWeek.ordinal.toLong())：从指定日期减去对应的天数，得到该周的星期一
+  3. plusDays(firstDayOfWeek.ordinal.toLong())：加上本地化星期起始日的偏移量
+  4. minusDays(if (firstDayOfWeek.ordinal <= date.dayOfWeek.ordinal) 0 else 7)：如果本地化星期起始日在指定日期的星期几之前或当天，则不需要调整否则需要减去7天以得到正确的周起始日
+
+2. 在fragment_week_view.xml中的周视图日历控件中添加属性，优化滑动效果
+
+~~~xml
+<!-- 将app:cv_scrollPaged="true"添加到WeekCalendarView控件中 -->
+<com.kizitonwose.calendar.view.WeekCalendarView
+        android:id="@+id/week_calendar_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:cv_dayViewResource="@layout/calendar_day_layout"
+        app:cv_scrollPaged="true"/>
+~~~
+
+#### 添加年月标题
+
+[回到上一级](#周视图功能细分)
+
+1. 首先需要修改 fragment_week_view.xml 文件，添加年月标题：
+
+~~~xml
+<!-- 添加年月标题 -->
+    <TextView
+        android:id="@+id/monthYearHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:padding="8dp"
+        android:textColor="@color/black"
+        tools:text="2023年10月" />
+~~~
+
+2. 在 WeekViewFragment.kt 中添加年月标题的处理逻辑：
+
+* 在类中添加年月标题变量声明
+~~~kotlin
+// 添加年月标题变量声明
+private lateinit var monthYearHeader: TextView
+~~~
+
+* 在 setupWeekView() 方法中初始化年月标题变量
+~~~kotlin
+// 初始化年月标题
+monthYearHeader = binding.root.findViewById<TextView>(R.id.monthYearHeader)
+~~~
+
+* 在 setupWeekView() 方法中的滚动监听器中同步更新年月标题
+~~~kotlin
+// 添加滚动监听器以同步星期标题
+weekCalendarView.weekScrollListener = { weekStart ->
+    // 更新星期标题以匹配当前周
+    updateDayOfWeekTitles(weekStart.days.first().date)
+    // 更新年月标题
+    updateMonthYearHeader(weekStart.days.first().date)
+    }
+~~~
+
+3. 实现更新逻辑 **updateMonthYearHeader()**
+
+~~~kotlin
+/**
+ * 更新年月标题
+ *
+ * @param date 当前周的起始日期
+ */
+private fun updateMonthYearHeader(date: LocalDate) {
+    val formatter = DateTimeFormatter.ofPattern("yyyy年MM月")
+    val monthYearText = date.format(formatter)
+
+    // 如果文本没变化，不更新
+    if (monthYearHeader.text.toString() == monthYearText){
+        return
+    }
+
+    monthYearHeader.text = monthYearText
+}
+~~~
 
 
 
