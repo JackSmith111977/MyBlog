@@ -110,6 +110,9 @@ categories:
         - [安全的最佳实践](#安全的最佳实践)
     - [Coroutines 协程](#coroutines-协程)
       - [协程使用步骤](#协程使用步骤)
+  - [网络通信](#网络通信)
+    - [OkHttp](#okhttp)
+      - [OkHttp使用步骤](#okhttp使用步骤)
 
 ## 前置条件
 * [安装Android Studio](https://developer.android.google.cn/studio/index.html?hl=ro)
@@ -3244,10 +3247,214 @@ suspend fun fetchDataInParallel(): List<String> =
     }
 ~~~
 
+## 网络通信
+
+[回到目录](#目录)
+
+### OkHttp
+
+**OkHttp**是一个**开源**的**HTTP客户端**，**用于**在Android和Java应用程序中执行网络请求。
+
+#### OkHttp使用步骤
+
+1. 添加网络权限和依赖
+
+在 AndroidManifest.xml 文件中添加网络权限：
+~~~xml
+<!-- 添加网络权限 -->
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+~~~
+
+在 gradle/libs.versions.toml 中定义 OkHttp 版本和依赖：
+
+~~~toml
+[versions]
+okhttp = "5.3.0"
+
+[libraries]
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp"}
+~~~
+
+在 app/build.gradle.kts 中引入依赖：
+~~~kotlin
+dependencies {
+    // 添加OkHttp依赖
+    implementation(libs.okhttp)
+}
+~~~
+
+2. 创建网络服务类
+
+创建 NetworkService.kt 类，包含 GET 和 POST 请求方法：
+* 初始化 OkHttpClient 实例
+* 实现 GET 请求方法 makeGetRequest
+* 实现 POST 请求方法 makePostRequest
+
+~~~kotlin
+/**
+ * 网络请求服务类
+ */
+class NetworkService {
+    private val client = OkHttpClient() // 创建OkHttpClient实例，用于发送网络请求
+
+    /**
+     * 发送GET请求的示例方法
+     * @param url 请求的URL地址
+     * @param callback 回调函数，用于处理请求结果
+     */
+    fun makeGetRequest(url: String, callback: (String?, IOException?) -> Unit) {
+        // 1. 构建请求对象
+        val request = Request.Builder()
+            .url(url) // 设置请求URL
+            .build()  // 构建Request对象
+
+        // 2. 创建Call对象并异步执行
+        client.newCall(request).enqueue(object : Callback {
+            // 3. 处理请求失败的情况
+            override fun onFailure(call: Call, e: IOException) {
+                // 请求失败，通过回调传递异常信息
+                callback(null, e)
+            }
+
+            // 4. 处理请求成功的情况
+            override fun onResponse(call: Call, response: Response) {
+                // 5. 检查HTTP响应状态码是否成功(200-299)
+                if (response.isSuccessful) {
+                    // 请求成功，通过回调传递响应体内容
+                    response.body?.let { responseBody ->
+                        callback(responseBody.string(), null)
+                    } ?: run {
+                        callback("", null) // 如果body为null，返回空字符串
+                    }
+                } else {
+                    // 请求失败，创建异常并传递错误码
+                    callback(null, IOException("请求失败，错误码：${response.code}").also { 
+                        it.printStackTrace() 
+                    })
+                }
+            }
+        })
+    }
+
+    /**
+     * 发送POST请求的示例方法
+     * @param url 请求的URL地址
+     * @param jsonBody POST请求体中的JSON数据
+     * @param callback 回调函数，用于处理请求结果
+     */
+    fun makePostRequest(url: String, jsonBody: String, callback: (String?, IOException?) -> Unit){
+        // 1. 定义请求体的媒体类型为JSON
+        val json = "application/json; charset=utf-8".toMediaType()
+        
+        // 2. 将字符串转换为RequestBody对象
+        val body = jsonBody.toRequestBody(json)
+
+        // 3. 构建POST请求对象
+        val request = Request.Builder()
+            .url(url) // 设置请求URL
+            .post(body) // 设置请求方法为POST，并附带请求体
+            .build() // 构建Request对象
+
+        // 4. 创建Call对象并异步执行
+        client.newCall(request).enqueue(object : Callback{
+            // 5. 处理请求失败的情况
+            override fun onFailure(call: Call, e: IOException) {
+                // 请求失败，通过回调传递异常信息
+                callback(null, e)
+            }
+
+            // 6. 处理请求成功的情况
+            override fun onResponse(call: Call, response: Response) {
+                // 7. 检查HTTP响应状态码是否成功(200-299)
+                if(response.isSuccessful){
+                    // 请求成功，通过回调传递响应体内容
+                    response.body?.let { responseBody ->
+                        callback(responseBody.string(), null)
+                    } ?: run {
+                        callback("", null) // 如果body为null，返回空字符串
+                    }
+                }else{
+                    // 请求失败，创建异常并传递错误码
+                    callback(null, IOException("请求失败，错误码：${response.code}").also { 
+                        it.printStackTrace() 
+                    })
+                }
+            }
+        })
+    }
+}
+~~~
+
+3. 在 Activity 中使用网络服务
+
+在 MainActivity.kt 中：
+* 启用 ViewBinding 功能以访问 UI 元素
+* 创建 NetworkService 实例
+* 在按钮点击事件中调用相应的网络请求方法
+* 处理网络请求结果并在主线程中更新 UI
+
+~~~kotlin
+class MainActivity : ComponentActivity() {
+
+    // 延迟初始化绑定器
+    private lateinit var binding: ActivityMainBinding
+
+    // 创建网络服务实例
+    private val networkService = NetworkService()
 
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
+        // 1. inflate XML 布局文件，创建 View 对象
+        binding = ActivityMainBinding.inflate(layoutInflater)
 
+        // 2. 将根视图设置为 Activity 的内容视图
+        setContentView(binding.root)
+
+        // 3. 现在可以通过 binding 访问布局中的所有视图组件
+        binding.btnGet.setOnClickListener {
+            networkService.makeGetRequest("https://httpbin.org/get") { response: String?, error: IOException? ->
+                runOnUiThread {
+                    if (error != null){
+                        Log.e("NetworkDemo", "Get请求失败：${error.message}")
+                        Toast.makeText(this, "Get请求失败：${error.message}", Toast.LENGTH_SHORT).show()
+                        binding.tvResult.text = "Get请求失败：${error.message}"
+                    }else{
+                        Log.d("NetworkDemo", "Get请求成功：${response}")
+                        Toast.makeText(this, "Get请求成功:${response}", Toast.LENGTH_SHORT).show()
+                        binding.tvResult.text = "Get请求成功：${response}"
+                    }
+                }
+            }
+        }
+
+        binding.btnPost.setOnClickListener {
+            val jsonBody = """
+                {
+                    "name": "John Doe",
+                    "age": 30
+                }
+            """.trimIndent()
+
+            networkService.makePostRequest("https://httpbin.org/post", jsonBody) { response: String?, error: IOException? ->
+                runOnUiThread {
+                    if (error != null){
+                        Log.e("NetworkDemo", "Post请求失败：${error.message}")
+                        Toast.makeText(this, "Post请求失败：${error.message}", Toast.LENGTH_SHORT).show()
+                        binding.tvResult.text = "Post请求失败：${error.message}"
+                    }else{
+                        Log.d("NetworkDemo", "Post请求成功：${response}")
+                        Toast.makeText(this, "Post请求成功,${response}", Toast.LENGTH_SHORT).show()
+                        binding.tvResult.text = "Post请求成功：${response}"
+                    }
+                }
+            }
+        }
+    }
+}
+~~~
 
 
 
