@@ -113,6 +113,14 @@ categories:
   - [网络通信](#网络通信)
     - [OkHttp](#okhttp)
       - [OkHttp使用步骤](#okhttp使用步骤)
+  - [后台服务](#后台服务)
+    - [基本特征](#基本特征)
+    - [启动方式](#启动方式)
+      - [通过startService()启动](#通过startservice启动)
+      - [通过bindService()启动](#通过bindservice启动)
+      - [混合启动方式](#混合启动方式)
+    - [代码实现](#代码实现)
+      - [startService()启动方式示例](#startservice启动方式示例)
 
 ## 前置条件
 * [安装Android Studio](https://developer.android.google.cn/studio/index.html?hl=ro)
@@ -3456,7 +3464,130 @@ class MainActivity : ComponentActivity() {
 }
 ~~~
 
+## 后台服务
 
+[回到目录](#目录)
+
+
+### 基本特征
+* **无 UI 界面：** 在后台运行，不与用户直接交互。
+* **生命周期独立：** 不受 Activity 生命周期直接影响（启动它的 Activity 销毁后，Service 可以继续运行）。
+* **运行在主线程：** 这一点至关重要！默认情况下，Service 与你的应用运行在同一个进程的主线程（UI 线程）中。因此，你不能直接在 Service 中执行**耗时操作**（如网络请求、大量文件读写），否则会阻塞主线程，导致应用无响应（ANR）。必须在 Service 内部**创建子线程**来处理这些任务
+
+### 启动方式
+
+####  通过startService()启动
+
+* **生命周期**流程：**onCreate()→ onStartCommand()→ (运行中) → onDestroy()**
+* onStartCommand()的返回值：这个返回值决定了服务被系统意外杀死后如何重启，非常重要
+  * START_STICKY：服务被杀死后会被系统**重新创建**，但之前的 Intent 数据会**丢失**（传入 null）。适合**音乐播放**等持续任务
+  * START_NOT_STICKY：服务被杀死后**不会自动重启**。适合一次性的任务，如**下载**单个文件
+  * START_REDELIVER_INTENT：服务被杀死后会被**重启**，并且最后一个 Intent 会被**重新传递**。适合必须完成的任务，如**支付**回调
+
+#### 通过bindService()启动
+
+这种方式允许组件（如 Activity）与 Service 进行双向通信。
+
+* **生命周期**流程：onCreate()→ onBind()→ (运行中，与绑定者交互) → onUnbind()→ onDestroy()
+* 通信桥梁 IBinder：服务通过 onBind()方法返回一个 IBinder对象，绑定组件通过这个对象来调用服务内部的方法，实现交互
+
+#### 混合启动方式
+一个 Service 可以同时被 startService()启动并被 bindService()绑定。这时，必须同时调用 stopService()和**所有绑定组件**的 unbindService()，服务才会销毁
+
+### 代码实现
+
+#### startService()启动方式示例
+
+以开启后台日志服务为例：
+
+1. 创建后台日志服务类LoggingService.kt，继承 Service类，需要重写onCreate()、onStartCommand()、onDestroy()方法，onBind()方法可返回null
+
+~~~kotlin
+class LoggingService: Service() {
+
+    companion object{
+        const val TAG = "LoggingService"
+        const val EXTRA_MESSAGE = "extra_massage" // 用于Intent传递数据的键
+    }
+
+    // 服务创建时被调用（仅调用一次）
+    override fun onCreate() {
+        super.onCreate()
+        Log.d(TAG, "日志服务已创建")
+    }
+
+    // 核心方法，每次startService都会调用
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "收到启动命令，startID：$startId")
+
+        // 1.从Intent中获取要记录的消息
+        val message = intent?.getStringExtra(EXTRA_MESSAGE)?: "默认消息"
+
+        // 2.开启新线程执行耗时操作，避免阻塞主线程
+        thread(start = true) {
+            // 模拟耗时的保存操作
+            Log.d(TAG, "后台线程开始工作：${Thread.currentThread().name}")
+            Thread.sleep(3000)
+            Log.i("APP_LOG", "消息已记录：$message")
+
+            // 3.任务完成后，服务自行停止
+            stopSelf(startId)
+            Log.d(TAG, "任务完成，服务已停止")
+        }
+
+        // 4.返回值，如果服务被杀死，希望系统重新创建并重传最后的Intent
+        return START_REDELIVER_INTENT
+    }
+
+    // 必须实现的方法，但对于startService方式可返回null
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    // 服务销毁时清理资源
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "日志服务已销毁")
+    }
+}
+~~~
+
+2. 在AndroidManifest.xml中注册服务，manifest/application标签内添加如下内容：
+
+~~~xml
+<!--注册LoggingService-->
+<service android:name=".LoggingService"/>
+~~~
+
+3. 在需要使用服务时，调用startService()方法启动服务，并传递Intent对象，Intent对象中可以携带数据
+
+示例在主活动中通过按钮点击启动服务：
+
+~~~kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        // 启动服务按钮
+        findViewById<Button>(R.id.btn_start_service).setOnClickListener {
+            // 1. 创建Intent, 指定要启动的服务
+            val intent = Intent(this, LoggingService::class.java).apply{
+                // 2.通过Intent传递数据给服务
+                putExtra(LoggingService.EXTRA_MESSAGE, "这是一条来自 Activity 的消息，时间：${System.currentTimeMillis()}")
+            }
+
+            // 3.启动服务
+            startService(intent)
+        }
+
+        // 停止服务按钮
+        findViewById<Button>(R.id.btn_stop_service).setOnClickListener {
+            // 停止服务的Intent
+            val stopIntent = Intent(this, LoggingService::class.java)
+            stopService(stopIntent)
+        }
+    }
+}
+~~~
 
 
 
