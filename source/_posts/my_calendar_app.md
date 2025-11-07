@@ -21,6 +21,8 @@ categories:
       - [添加今日默认背景](#添加今日默认背景)
       - [周的滚动切换](#周的滚动切换)
       - [添加年月标题](#添加年月标题)
+  - [日程添加](#日程添加)
+    - [点击按钮打开日程添加表单](#点击按钮打开日程添加表单)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -627,6 +629,336 @@ private fun updateMonthYearHeader(date: LocalDate) {
     monthYearHeader.text = monthYearText
 }
 ~~~
+
+## 日程添加
+
+[回到目录](#目录)
+
+### 点击按钮打开日程添加表单
+
+[回到上一级](#日程添加)
+
+1. 在layout中准备表单界面 dialog_add_event.xml
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- 添加日程表格 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="添加日程"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="16dp"/>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/editTextDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="日期"
+            android:focusable="false"
+            android:clickable="true"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/editTextTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="日程标题"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/editTextContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="日程内容"
+            android:minLines="3"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/editTextReminder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="提醒时间"
+            android:focusable="false"
+            android:clickable="true"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/buttonCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="取消"
+            style="@style/Widget.MaterialComponents.Button.TextButton"/>
+
+        <Button
+            android:id="@+id/buttonConfirm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="确认"
+            style="@style/Widget.MaterialComponents.Button.TextButton"/>
+    </LinearLayout>
+
+</LinearLayout>
+~~~
+
+* 其中，TextInputLayout 相比于传统的 EditText 增加了很多功能
+  * 浮动标签：提示词在输入内容后不会消失，而是显示于左上方中
+  * 错误提示：可以方便地显示错误信息，帮助用户理解输入要求
+  * 辅助文本：支持显示帮助文本或字符计数等辅助信息
+  * 图标支持：可以在文本框内添加前缀、后缀图标
+* 每个 TextInputLayout 都围起一个 TextInputEditText 子元素
+  * 属性 focusable="false" 表明该元素不能获得焦点，即不通过键盘直接输入
+  * 属性 clickable="true" 表明该元素可以通过点击触发，通过触发事件，间接输入到输入框中
+
+2. 在MainActivity中添加点击按钮打开表单的逻辑
+
+   1. 在onCreate()方法中调用 **setupFloatingActionButton()** 方法
+   2. 在MainActivity类内实现 **setupFloatingActionButton()** 方法
+
+        ~~~kotlin
+        private fun setupFloatingActionButton() {
+            binding.fabAddEvent.setOnClickListener {
+                showAddEventDialog()
+            }
+        }
+        ~~~
+        * 绑定FAB按钮触发点击事件
+        * 通过点击事件触发显示表单方法 **showAddEventDialog()**
+
+   3. 实现 showAddEventDialog() 方法
+      1. 创建对话框
+        ~~~kotlin
+            private fun showAddEventDialog() {
+                
+                // 1. 创建对话框
+                val builder = AlertDialog.Builder(this)
+                val inflater = layoutInflater
+                val dialogView = inflater.inflate(R.layout.dialog_add_event, null)
+                builder.setView(dialogView)
+
+                val dialog = builder.create()
+        ~~~
+        * 使用 AlertDialog.Builder 创建**对话框构建器**
+        * 通过 layoutInflater 加载 dialog_add_event.xml 布局文件
+        * 将加载的视图设置为对话框的内容视图
+        * 通过 builder.create() 创建**实际的对话框对象**
+
+      2. 获取对话框中的UI组件
+      ~~~kotlin
+              // 2. 查找对话框中的UI组件
+              val editTextDate = dialogView.findViewById<TextInputEditText>(R.id.editTextDate)
+              val editTextTitle = dialogView.findViewById<TextInputEditText>(R.id.editTextTitle)
+              val editTextContent = dialogView.findViewById<TextInputEditText>(R.id.editTextContent)
+              val editTextReminder = dialogView.findViewById<TextInputEditText>(R.id.editTextReminder)
+              val buttonCancel = dialogView.findViewById<Button>(R.id.buttonCancel)
+              val buttonConfirm = dialogView.findViewById<Button>(R.id.buttonConfirm)
+      ~~~
+      3. 设置默认日期和日期选择器
+      ~~~kotlin
+              // 3. 设置默认日期为今天，若有选择的日期，则使用选择的日期
+              val selectedDate = getSelectedDate()
+              val defaultDate = selectedDate ?: LocalDate.now() // 若无选择日期，则使用今天
+              val formatter = DateTimeFormatter.ofPattern("yyyy年MM月dd日") // 日期格式
+              editTextDate.setText(defaultDate.format(formatter)) // 设置默认日期
+
+              // 设置日期选择器
+              editTextDate.setOnClickListener {
+                  showDatePicker(editTextDate)
+              }
+
+              // 设置提醒时间选择器
+              editTextReminder.setOnClickListener {
+                  showTimePicker(editTextReminder)
+              }
+      ~~~
+      4. 设置按钮并显示对话框
+      ~~~kotlin
+              // 设置取消按钮
+              buttonCancel.setOnClickListener {
+                  dialog.dismiss()
+              }
+
+              // 设置确认按钮
+              buttonConfirm.setOnClickListener {
+                  val title = editTextTitle.text.toString()
+                  val content = editTextContent.text.toString()
+                  val date = editTextDate.text.toString()
+                  val reminder = editTextReminder.text.toString()
+
+                  // 处理添加事件逻辑
+                  Toast.makeText(this, "日程已添加", Toast.LENGTH_SHORT).show()
+                  dialog.dismiss()
+              }
+              
+              // 显示对话框
+              dialog.show()
+          }
+      ~~~
+
+   4. 实现 showDatePicker() 方法和 showTimePicker() 方法
+      1. 实现 showTimePicker() 方法
+      ~~~kotlin
+          private fun showTimePicker(editTextReminder: TextInputEditText) {
+              // 创建时间选择器对象
+              val timePicker = TimePickerDialog(
+                  this,
+                  {_, hourOfDay, minute ->
+                      val selectedTime = String.format("%02d:%02d", hourOfDay, minute) // 将时间格式化为HH:mm
+                      editTextReminder.setText(selectedTime) // 设置选中的时间
+                  },
+                  9, // 默认选中的时间为9:00
+                  0,
+                  true // 是否使用24小时制
+              )
+              timePicker.show()
+          }
+      ~~~
+
+      2. 实现 showDatePicker() 方法
+
+      ~~~kotlin
+          private fun showDatePicker(editTextDate: TextInputEditText) {
+              val today = LocalDate.now()
+              val datePicker = DatePickerDialog(
+                  this,
+                  {_, year, month, dayOfMonth ->
+                      val selectedDate = LocalDate.of(year, month + 1, dayOfMonth) // 创建选中日期的 LocalDate 对象（需要将月份+1，因为DatePicker的月份是从0开始的）
+                      val formatter = DateTimeFormatter.ofPattern("yyyy年MM月dd日") // 日期格式
+                      editTextDate.setText(selectedDate.format(formatter)) // 显示选中的日期
+                  },
+                  today.year, 
+                  today.monthValue - 1, // month: today.monthValue - 1 - 日期选择器的初始月份设置为当前月份（需要减1，因为DatePicker的月份是从0开始的）
+                  today.dayOfMonth
+              )
+              datePicker.show()
+          }
+      ~~~
+
+   5. 实现 getSelectedDate() 方法
+   ~~~kotlin
+       private fun getSelectedDate(): LocalDate?{
+           val viewPager = binding.viewPager
+           val currentFragment = supportFragmentManager.findFragmentByTag("f" + viewPager.currentItem)
+
+           return when(currentFragment){
+               is DayViewFragment -> {
+                   // 从日视图中获取选中日期
+                   null
+               }
+               is WeekViewFragment -> {
+                   // 从周视图中获取选中日期
+                   currentFragment.getSelectedDate()
+               }
+               is MonthViewFragment -> {
+                   // 从月视图中获取选中日期
+                   currentFragment.getSelectedDate()
+               }
+               else -> null
+           }
+       }
+   ~~~
+   * 首先通过 binding.viewPager 获取应用中的ViewPager组件
+   * 通过 viewPager.currentItem 获取当前显示页面的索引
+   * 使用 supportFragmentManager.findFragmentByTag("f" + viewPager.currentItem) 根据标签查找当前Fragment
+     * ViewPager2会自动为每个页面的Fragment分配标签，格式为"f"+页面索引
+     * 这样就可以获取到当前显示的具体Fragment实例
+
+3. 在 MonthViewFragment 和 WeekViewFragment 中添加 getSelectedDate() 方法
+
+   * MonthViewFragment 的 getSelectedDate() 方法实现如下：
+
+   ~~~kotlin
+       fun getSelectedDate(): LocalDate?{
+           val monthViewBinder = binding.monthCalendarView.dayBinder as? MonthDayViewBinder // 将 dayBinder 安全转换为 MonthDayViewBinder
+           return  monthViewBinder?.getSelectedDate()
+       }
+   ~~~
+
+
+   * WeekViewFragment 的 getSelectedDate() 方法实现如下：
+   ~~~kotlin
+       fun getSelectedDate(): LocalDate?{
+           // 获取 WeekViewBinder 实例并返回其选中的日期
+           val weekViewBinder = binding.weekCalendarView.dayBinder as? WeekViewBinder // 将 dayBinder 安全转换为WeekViewBinder
+           return weekViewBinder?.getSelectedDate()
+       }
+   ~~~
+
+4. 在 WeekViewBinder 和 MonthDayViewBinder 中分别实现在其fragment中调用的 getSelectedDate() 方法
+
+* WeekViewBinder 的 getSelectedDate() 方法实现如下：
+
+~~~kotlin
+    fun getSelectedDate(): LocalDate?{
+        return selectedDate
+    }
+~~~
+
+* MonthDayViewBinder 的 getSelectedDate() 方法实现如下：
+
+~~~kotlin
+    fun getSelectedDate(): LocalDate?{
+        return selectedDate
+    }
+~~~
+
+至此，我们可以通过按钮打开添加日程的表单，并选择日期和时间，添加内容
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
