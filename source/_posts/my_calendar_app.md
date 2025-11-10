@@ -24,7 +24,7 @@ categories:
   - [日程添加](#日程添加)
     - [点击按钮打开日程添加表单](#点击按钮打开日程添加表单)
     - [日程列表实现](#日程列表实现)
-  - [](#)
+    - [日程修改实现](#日程修改实现)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -1608,13 +1608,240 @@ withContext(Dispatchers.Main){
 }
 ~~~
 
-##
+### 日程修改实现
 
+* 该步骤要实现 **DayViewFragment.kt** 中的 **editEvent()** 方法
+* 该方法的传递逻辑为 *editEvent() -> setupRecyclerView() -> onViewCreated()* 
+* 通过 EventCardAdapter 类中的 editButton.setOnClickListener() 方法触发调用
 
+~~~kotlin
+/**
+ * 编辑指定事件
+ *
+ * @param event 需要编辑的事件对象
+ */
+private fun editEvent(event: CalendarEvent) {
+    // 添加编辑事件逻辑
 
+}
+~~~
 
+1. 创建对话框
 
+~~~kotlin
+// 创建对话框
+val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_add_event, null)
+val dialogBuilder = AlertDialog.Builder(requireContext())
+dialogBuilder.setView(dialogView)
+~~~
 
+2. 获取对话框的视图元素
+
+~~~kotlin
+// 获取对话框的视图元素
+val dialogTitle = dialogView.findViewById<TextView>(R.id.dialogTitle)
+val eventIdText = dialogView.findViewById<TextView>(R.id.eventIdText)
+val editTextDate = dialogView.findViewById<TextInputEditText>(R.id.editTextDate)
+val editTextTitle = dialogView.findViewById<TextInputEditText>(R.id.editTextTitle)
+val editTextContent = dialogView.findViewById<TextInputEditText>(R.id.editTextContent)
+val editTextReminder = dialogView.findViewById<TextInputEditText>(R.id.editTextReminder)
+val buttonCancel = dialogView.findViewById<Button>(R.id.buttonCancel)
+val buttonConfirm = dialogView.findViewById<Button>(R.id.buttonConfirm)
+~~~
+
+3. 对话框视图信息回显
+
+~~~kotlin
+// 回显事件信息 - 将当前事件的信息显示在对话框中供用户编辑
+eventIdText.text = event.id.toString()
+editTextTitle.setText(event.title)
+editTextContent.setText(event.content)
+
+// 格式化显示日期 - 将事件开始时间格式化为"yyyy年MM月dd日"格式显示
+val eventDate = Date(event.startTime)
+val dateFormat = SimpleDateFormat("yyyy年MM月dd日", Locale.getDefault())
+editTextDate.setText(dateFormat.format(eventDate))
+
+// 格式化并显示提醒时间 - 如果事件设置了提醒时间，则格式化为"HH:mm"格式显示
+val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+if (event.reminderTime != 0L){
+    editTextReminder.setText(timeFormatter.format(Date(event.reminderTime)))
+}
+~~~
+
+4. 设置日期选择器和时间选择器
+
+~~~kotlin
+// 设置日期选择器 - 点击日期输入框时弹出日期选择器
+editTextDate.setOnClickListener {
+    showDatePicker(editTextDate)
+}
+
+// 设置提醒时间选择器 - 点击提醒时间输入框时弹出时间选择器
+editTextReminder.setOnClickListener {
+    showTimePicker(editTextReminder)
+}
+~~~
+
+* 日期选择器
+
+~~~kotlin
+private fun showDatePicker(editTextDate: TextInputEditText) {
+    val today = LocalDate.now()
+    val datePicker = DatePickerDialog(
+        requireContext(),
+        {_, year, month, dayOfMonth ->
+            val selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
+            val formatter = DateTimeFormatter.ofPattern("yyyy年MM月dd日")
+            editTextDate.setText(selectedDate.format(formatter))
+        },
+        today.year,
+        today.monthValue - 1,
+        today.dayOfMonth
+    )
+    datePicker.show()
+}
+~~~
+
+* 时间选择器
+
+~~~kotlin
+private fun showTimePicker(editTextReminder: TextInputEditText) {
+    val timePicker = TimePickerDialog(
+        requireContext(),
+        {_, hourOfDay, minute ->
+            val selectedTime = String.format("%02d:%02d", hourOfDay, minute)
+            editTextReminder.setText(selectedTime)
+        },
+        9,
+        0,
+        true
+    )
+    timePicker.show()
+}
+~~~
+
+5. 创建并显示对话框
+
+~~~kotlin
+val dialog = dialogBuilder.create()
+~~~
+
+6. 设置取消按钮事件
+
+~~~kotlin
+buttonCancel.setOnClickListener {
+    dialog.dismiss()
+}
+~~~
+
+7. 设置确认按钮事件
+
+~~~kotlin
+buttonConfirm.setOnClickListener {
+    // 添加修改事件逻辑
+    try {
+        // 事件逻辑
+    } catch (e: Exception) {
+        // 失败处理
+    }
+}
+~~~
+
+* 使用协程作用于执行数据库的耗时操作
+
+~~~kotlin
+lifecycleScope.launch {
+    // 修改数据库相关操作
+}
+~~~
+
+* 获取数据库实例和事件数据访问对象
+
+~~~kotlin
+val database = CalendarDatabase.getInstance(requireContext())
+val eventDao = database.eventDao()
+~~~
+
+* 获取修改的数据并解析
+
+~~~kotlin
+// 获取用户输入的数据
+val title = editTextTitle.text.toString()
+val content = editTextContent.text.toString()
+val reminder = editTextReminder.text.toString()
+
+// 解析日期 - 将用户输入的日期字符串转换为LocalDate对象
+val dateFormatter = DateTimeFormatter.ofPattern("yyyy年MM月dd日")
+val localDate = LocalDate.parse(editTextDate.text.toString(), dateFormatter)
+// 计算事件开始时间和结束时间的时间戳
+val startTime = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+val endTime = localDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+// 解析提醒时间 - 如果设置了提醒时间，则计算提醒时间的时间戳
+val reminderTime = if (reminder.isNotEmpty()){
+    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    val localTime = LocalTime.parse(reminder, timeFormatter)
+    val reminderDateTime = localDate.atTime(localTime)
+    reminderDateTime.atZone((ZoneId.systemDefault())).toInstant().toEpochMilli()
+}else {
+    0L // 如果未设置提醒时间，则设为0
+}
+~~~
+
+* 创建修改事件对象，校验关键信息非空，并提交修改
+
+~~~kotlin
+// 更新事件对象 - 使用新的数据创建更新后的事件对象
+val updatedEvent = event.copy(
+    title = title,
+    content = content,
+    startTime = startTime,
+    endTime = endTime,
+    reminderTime = reminderTime
+)
+
+// 验证必填字段 - 检查标题是否为空
+if (title.isEmpty()){
+    editTextTitle.error = "请输入日程标题"
+    return@launch
+}
+
+// 验证必填字段 - 检查日期是否为空
+if (content.isEmpty()){
+    editTextDate.error = "请选择日程日期"
+    return@launch
+}
+
+// 更新事件到数据库
+eventDao.updateEvent(updatedEvent)
+~~~
+
+* 通知观察者，刷新视图
+
+~~~kotlin
+EventUpdateManager.getInstance().notifyEventAdded()
+~~~
+
+* 关闭对话框并显示成功提示
+
+~~~kotlin
+dialog.dismiss()
+Toast.makeText(context, "修改成功", Toast.LENGTH_SHORT).show()
+~~~
+
+* 捕获异常并显示错误提示
+~~~kotlin
+Toast.makeText(context, "修改失败：${e.message}", Toast.LENGTH_SHORT).show()
+~~~
+
+8. 展示对话框
+
+~~~kotlin
+dialog.show()
+~~~
+
+至此，我们可以通过点击修改按钮，弹出修改事件对话框，并完成修改事件操作
 
 
 
