@@ -10,7 +10,7 @@
     "netlify": "npm run clean && npm run build"
   },
   "hexo": {
-    "version": "7.3.0"
+    "version": "8.1.1"
   },
   "dependencies": {
     "hexo": "^8.1.1",
@@ -28,6 +28,7 @@
     "hexo-theme-kira": "^1.4.9",
     "hexo-theme-landscape": "^1.0.0",
     "hexo-theme-nexmoe": "^4.2.2",
+    "hexo-theme-next": "^8.26.0",
     "live2d-widget-model-nipsilon": "^1.0.5",
     "live2d-widget-model-shizuku": "^1.0.5",
     "live2d-widget-model-wanko": "^1.0.5",
