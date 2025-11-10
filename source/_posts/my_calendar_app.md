@@ -23,6 +23,7 @@ categories:
       - [添加年月标题](#添加年月标题)
   - [日程添加](#日程添加)
     - [点击按钮打开日程添加表单](#点击按钮打开日程添加表单)
+    - [日程列表实现](#日程列表实现)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -892,10 +893,10 @@ private fun updateMonthYearHeader(date: LocalDate) {
            }
        }
    ~~~
-   * 首先通过 binding.viewPager 获取应用中的ViewPager组件
-   * 通过 viewPager.currentItem 获取当前显示页面的索引
+   * 首先通过 binding.viewPager 获取应用中的**ViewPager组件**
+   * 通过 viewPager.currentItem 获取当前显示页面的**索引**
    * 使用 supportFragmentManager.findFragmentByTag("f" + viewPager.currentItem) 根据标签查找当前Fragment
-     * ViewPager2会自动为每个页面的Fragment分配标签，格式为"f"+页面索引
+     * ViewPager2会自动为每个页面的Fragment分配标签，格式为 **"f"+页面索引**
      * 这样就可以获取到当前显示的具体Fragment实例
 
 3. 在 MonthViewFragment 和 WeekViewFragment 中添加 getSelectedDate() 方法
@@ -939,9 +940,672 @@ private fun updateMonthYearHeader(date: LocalDate) {
 
 至此，我们可以通过按钮打开添加日程的表单，并选择日期和时间，添加内容
 
+### 日程列表实现
 
+1. 创建日程卡片视图 item_event_card.xml
 
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日程卡片布局 -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:strokeWidth="0dp">
 
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <!-- 事件颜色标识 -->
+        <View
+            android:id="@+id/eventColorIndicator"
+            android:layout_width="6dp"
+            android:layout_height="0dp"
+            android:background="@color/magenta_500"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+
+        <!-- 事件标题 -->
+        <TextView
+            android:id="@+id/eventTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="8dp"
+            android:text="事件标题"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            app:layout_constraintEnd_toStartOf="@+id/editEventButton"
+            app:layout_constraintStart_toEndOf="@+id/eventColorIndicator"
+            app:layout_constraintTop_toTopOf="parent"/>
+
+        <!-- 事件内容摘要 -->
+        <TextView
+            android:id="@+id/eventContent"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="事件内容摘要，超出十个字显示省略号"
+            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+            android:textColor="?attr/colorOnSurface"
+            app:layout_constraintEnd_toEndOf="@+id/eventTitle"
+            app:layout_constraintStart_toStartOf="@+id/eventTitle"
+            app:layout_constraintTop_toBottomOf="@+id/eventTitle"/>
+
+        <!-- 时间信息 -->
+        <TextView
+            android:id="@+id/eventTime"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="持续时间"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:layout_constraintEnd_toEndOf="@+id/eventTitle"
+            app:layout_constraintStart_toStartOf="@+id/eventTitle"
+            app:layout_constraintTop_toBottomOf="@+id/eventContent"/>
+
+        <!-- 提醒时间 -->
+        <TextView
+            android:id="@+id/eventReminder"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:drawableStart="@drawable/ic_notification"
+            android:drawablePadding="4dp"
+            android:text="提前15分钟提醒"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:layout_constraintEnd_toEndOf="@+id/eventTitle"
+            app:layout_constraintStart_toStartOf="@+id/eventTitle"
+            app:layout_constraintTop_toBottomOf="@+id/eventTime" />
+
+        <!-- 编辑按钮 -->
+        <ImageButton
+            android:id="@+id/editEventButton"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="编辑事件"
+            android:src="@drawable/ic_edit"
+            app:layout_constraintEnd_toStartOf="@+id/eventCompletedCheckbox"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorOnSurfaceVariant" />
+
+        <!-- 完成状态复选框 -->
+        <CheckBox
+            android:id="@+id/eventCompletedCheckbox"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="8dp"
+            app:layout_constraintEnd_toStartOf="@+id/deleteEventButton"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- 删除按钮 -->
+        <ImageButton
+            android:id="@+id/deleteEventButton"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="删除事件"
+            android:src="@drawable/ic_delete"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorError" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>
+~~~
+* **MaterialCardView** 是 Google Material Design 组件库中的一个核心 UI 组件，它是一个现代化的**卡片视图**实现
+
+2. 修改日视图 fragment_day_view.xml
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    日视图 Fragment 的布局文件
+    包含标题和日视图内容区域
+-->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical">
+
+    <!-- 日视图标题文本 -->
+    <TextView
+        android:id="@+id/dayHeaderText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:text="日视图"
+        android:textAlignment="center"
+        android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+
+    <!-- 无事件提示 -->
+    <TextView
+        android:id="@+id/noEventText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="今天暂无事件"
+        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/dayHeaderText"/>
+
+    <!-- 事件列表 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/eventRecyclerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:clipToPadding="false"
+        android:paddingBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/dayHeaderText"/>
+</androidx.constraintlayout.widget.ConstraintLayout>
+~~~
+
+* RecyclerView 是 Android 中一个非常重要的 UI 组件，用于在有限的窗口中展示大量数据列表
+* RecyclerView 需要 Adapter 类适配器为其绑定数据源
+* Adapter 的内部类 ViewHolder 可以持有RecyclerView 的子项视图
+
+3. 创建适配器为 RecyclerView 绑定数据
+
+~~~kotlin
+/**
+ * 事件卡片适配器类
+ * 用于在 RecyclerView 中显示日程事件列表，每个事件以卡片形式展示
+ *
+ * @param events 初始事件列表
+ * @param onEditClick 编辑按钮点击回调函数
+ * @param onDeleteClick 删除按钮点击回调函数
+ * @param onCompleteToggle 完成状态切换回调函数
+ */
+class EventCardAdapter(
+    private var events: List<CalendarEvent>, // 事件列表数据
+    private val onEditClick: (CalendarEvent) -> Unit, // 编辑事件回调
+    private val onDeleteClick: (CalendarEvent) -> Unit, // 删除事件回调
+    private val onCompleteToggle: (CalendarEvent, Boolean) -> Unit // 完成状态切换回调
+): RecyclerView.Adapter<EventCardAdapter.EventViewHolder>() {
+    /**
+     * 创建 ViewHolder 实例
+     *
+     * @param parent 父 ViewGroup
+     * @param viewType 视图类型
+     * @return 返回新创建的 EventViewHolder 实例
+     */
+    override fun onCreateViewHolder(
+        parent: ViewGroup,
+        viewType: Int
+    ): EventCardAdapter.EventViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_event_card, parent, false) // 从布局文件创建视图
+        return EventViewHolder(view)
+    }
+
+    /**
+     * 绑定数据到 ViewHolder
+     *
+     * @param holder 要绑定数据的 ViewHolder
+     * @param position 数据在列表中的位置
+     */
+    override fun onBindViewHolder(holder: EventCardAdapter.EventViewHolder, position: Int) {
+        holder.bind(events[position]) // 绑定指定位置的数据到 ViewHolder
+    }
+
+    /**
+     * 获取事件列表的大小
+     *
+     * @return 返回事件列表的大小
+     */
+    override fun getItemCount(): Int {
+        return events.size // 返回事件列表大小
+    }
+
+    /**
+     * 更新事件列表数据
+     *
+     * @param newEvents 新的事件列表
+     */
+    fun updateEvents(newEvents: List<CalendarEvent>){
+        events = newEvents
+        notifyDataSetChanged() // 通知数据变更，刷新界面
+    }
+
+    /**
+     * 事件卡片 ViewHolder 类
+     * 用于持有和管理事件卡片中的各个 UI 元素
+     */
+    inner class EventViewHolder(itemView: View): RecyclerView.ViewHolder(itemView){
+        private val colorIndicator: View = itemView.findViewById(R.id.eventColorIndicator) // 事件颜色指示器
+        private val titleText: TextView = itemView.findViewById(R.id.eventTitle) // 事件标题文本
+        private val contentText: TextView = itemView.findViewById(R.id.eventContent) // 事件内容文本
+        private val timeText: TextView = itemView.findViewById(R.id.eventTime) // 事件时间文本
+        private val reminders: TextView = itemView.findViewById(R.id.eventReminder) // 提醒时间文本
+        private val editButton: ImageButton = itemView.findViewById(R.id.editEventButton) // 编辑按钮
+        private val completeCheckbox: CheckBox = itemView.findViewById(R.id.eventCompletedCheckbox) // 完成状态复选框
+        private val deleteButton: ImageButton = itemView.findViewById(R.id.deleteEventButton) // 删除按钮
+
+        /**
+         * 绑定事件数据到视图元素
+         *
+         * @param event 要绑定的事件数据
+         */
+        fun bind(event: CalendarEvent){
+            // 设置事件颜色
+            colorIndicator.setBackgroundColor(event.eventColor) // 根据事件颜色设置指示器背景色
+
+            // 设置事件标题
+            titleText.text = event.title // 显示事件标题
+
+            // 设置内容摘要(超过十个字省略后面的字)
+            contentText.text = if (event.content.length > 10){
+                "${event.content.take(10)}..." // 截取前10个字符并添加省略号
+            }else{
+                event.content // 内容不足10个字符则完整显示
+            }
+
+            // 设置时间
+            val startTime = formatTime(event.startTime) // 格式化开始时间
+            val endTime = formatTime(event.endTime) // 格式化结束时间
+            timeText.text = "$startTime - $endTime" // 显示时间范围
+
+            // 设置提醒时间
+            reminders.text = formatReminderTime(event.reminderTime) // 显示提醒时间
+
+            // 设置完成状态
+            completeCheckbox.isChecked = event.isCompleted // 根据事件状态设置复选框选中状态
+
+            // 设置点击事件
+            editButton.setOnClickListener { onEditClick(event) } // 点击编辑按钮触发回调
+            deleteButton.setOnClickListener { onDeleteClick(event) } // 点击删除按钮触发回调
+            completeCheckbox.setOnCheckedChangeListener { _, isChecked ->
+                onCompleteToggle(event, isChecked) // 切换完成状态时触发回调
+            }
+        }
+
+        /**
+         * 格式化时间戳为 HH:mm 格式的字符串
+         *
+         * @param timeStamp 时间戳
+         * @return 格式化后的时间字符串，如果时间戳为0则返回"无"
+         */
+        private fun formatTime(timeStamp: Long): String{
+            return if (timeStamp == 0L){
+                "无" // 时间戳为0时显示"无"
+            }else{
+                val date = Date(timeStamp)
+                val format = SimpleDateFormat("HH:mm", Locale.getDefault()) // 使用 HH:mm 格式
+                format.format(date) // 格式化时间戳
+            }
+        }
+
+        /**
+         * 格式化提醒时间戳为 HH:mm 格式的字符串
+         *
+         * @param timeStamp 提醒时间戳
+         * @return 格式化后的提醒时间字符串，如果时间戳为0则返回"无"
+         */
+        private fun formatReminderTime(timeStamp: Long): String{
+            return if (timeStamp == 0L){
+                "无" // 时间戳为0时显示"无"
+            }else{
+                val date = Date(timeStamp)
+                val format = SimpleDateFormat("HH:mm", Locale.getDefault()) // 使用 HH:mm 格式
+                format.format(date) // 格式化时间戳
+            }
+        }
+    }
+}
+~~~
+* 实现 ViewHolder 模式
+* 绑定数据到视图
+* 处理用户交互（增加、修改、删除）
+
+4. 准备图标按钮需要的矢量图标资源
+
+* 删除按钮图标 ic_delete.xml
+
+~~~xml
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorError">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M6,19c0,1.1 0.9,2 2,2h8c1.1,0 2,-0.9 2,-2V7H6v12zM19,4h-3.5l-1,-1h-5l-1,1H5v2h14V4z"/>
+</vector>
+~~~
+
+* 编辑按钮图标 ic_edit.xml
+
+~~~xml
+<!-- res/drawable/ic_edit.xml -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M3,17.25V21h3.75L17.81,9.94l-3.75,-3.75L3,17.25zM20.71,7.04c0.39,-0.39 0.39,-1.02 0,-1.41l-2.34,-2.34c-0.39,-0.39 -1.02,-0.39 -1.41,0l-1.83,1.83 3.75,3.75 1.83,-1.83z"/>
+</vector>
+~~~
+
+* 确认完成图标 ic_notification.xml
+
+~~~xml
+<!-- res/drawable/ic_notification.xml -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorOnSurfaceVariant">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.89,2 2,2zM18,16v-5c0,-3.07 -1.64,-5.64 -4.5,-6.32L13.5,4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.63,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"/>
+</vector>
+~~~
+
+5. 修改日视图 DayViewFragment.kt 以初始化适配器，并启动数据库，为适配器设置数据源
+
+~~~kotlin
+/**
+ * 日视图 Fragment
+ * 负责显示和管理日历的日视图，显示特定日期的详细信息
+ */
+class DayViewFragment: Fragment() {
+    private var _binding: FragmentDayViewBinding? = null
+    private val binding get() = _binding!!
+
+    private lateinit var dayTitle: TextView
+    private lateinit var noEventsText: TextView
+    private lateinit var eventsRecyclerView: RecyclerView
+    private lateinit var eventAdapter: EventCardAdapter
+
+    /**
+     * 事件更新观察者
+     * 当收到事件更新通知时，重新加载当天的事件列表
+     */
+    private val eventUpdateObserver = Observer<Boolean> { _ ->
+        // 当收到事件更新时，刷新日程列表
+        loadEventsForDate()
+    }
+
+    /**
+     * 创建 Fragment 的视图层次结构
+     *
+     * @param inflater 用于 inflate 视图的 LayoutInflater
+     * @param container 此 Fragment 的父 ViewGroup
+     * @param savedInstanceState 保存的状态信息，如果 Fragment 是重新创建的，则不为 null
+     * @return 返回此 Fragment 的根视图
+     */
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        _binding = FragmentDayViewBinding.inflate(inflater, container, false)
+        val view = _binding!!.root
+
+        dayTitle = binding.dayHeaderText
+        noEventsText = binding.noEventText
+        eventsRecyclerView = binding.eventRecyclerView
+
+        return view
+    }
+
+    /**
+     * 设置 RecyclerView 及其适配器
+     * 初始化事件列表的显示组件
+     */
+    private fun setupRecyclerView() {
+        eventAdapter = EventCardAdapter(
+            events = emptyList(),
+            onEditClick = { event ->
+                editEvent(event)
+            },
+            onDeleteClick = { event ->
+                deleteEvent(event)
+            },
+            onCompleteToggle = { event, isCompleted ->
+                toggleEventCompletion(event, isCompleted)
+            }
+        )
+
+        eventsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(context)
+            adapter = eventAdapter
+        }
+    }
+
+    /**
+     * 加载指定日期的事件
+     * 触发从数据库加载事件数据的操作
+     */
+    private fun loadEventsForDate(){
+        loadEventFromDatabase()
+    }
+
+    /**
+     * 更新事件列表显示
+     * 根据事件列表是否为空来控制空提示文本的显示
+     *
+     * @param events 要显示的事件列表
+     */
+    private fun updateEventList(events: List<CalendarEvent>){
+        eventAdapter.updateEvents(events)
+        noEventsText.visibility = if (events.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * 从数据库加载事件数据
+     * 异步查询数据库获取当天的所有事件，并更新UI显示
+     */
+    private fun loadEventFromDatabase(){
+        lifecycleScope.launch {
+            try {
+                // 获取数据库实例
+                val database = CalendarDatabase.getInstance(requireContext())
+                val eventDao = database.eventDao()
+
+                // 计算当天的开始和结束日期
+                val currentDate = LocalDate.now()
+                val startOfDay = currentDate.atStartOfDay()
+                val endOfDay = currentDate.atTime(23, 59, 59)
+
+                val startTimeStamp = startOfDay.toInstant(ZoneOffset.UTC).toEpochMilli()
+                val endTimeStamp = endOfDay.toInstant(ZoneOffset.UTC).toEpochMilli()
+
+                // 查询数据库并获取事件
+                val events = eventDao.getEventsInRange(startTimeStamp, endTimeStamp)
+
+                // 更新UI
+                updateEventList(events)
+            } catch (e: Exception){
+                // 处理异常
+                Toast.makeText(context, "加载事件失败：${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /**
+     * 编辑指定事件
+     *
+     * @param event 需要编辑的事件对象
+     */
+    private fun editEvent(event: CalendarEvent) {
+        // 添加编辑事件逻辑
+    }
+    
+    /**
+     * 删除指定事件
+     *
+     * @param event 需要删除的事件对象
+     */
+    private fun deleteEvent(event: CalendarEvent) {
+        // 添加删除事件逻辑
+    }
+    
+    /**
+     * 切换事件完成状态
+     *
+     * @param event 需要切换状态的事件对象
+     * @param isCompleted 事件的完成状态
+     */
+    private fun toggleEventCompletion(event: CalendarEvent, isCompleted: Boolean) {
+        // 添加切换事件完成状态逻辑
+    }
+
+    /**
+     * 当 Fragment 的视图创建完成后调用
+     * 在这里进行视图相关的初始化操作
+     *
+     * @param view 此 Fragment 的根视图
+     * @param savedInstanceState 保存的状态信息
+     */
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // 观察事件更新
+        EventUpdateManager.getInstance().eventUpdated.observe(
+            viewLifecycleOwner,
+            eventUpdateObserver
+        )
+
+        
+        // 初始化 ViewModel
+        val database = CalendarDatabase.getInstance(requireContext())
+        val eventDao = database.eventDao()
+        
+        setupRecyclerView()
+        
+        // 加载初始数据
+        loadEventsForDate()
+        setupDayView()
+    }
+
+    /**
+     * 设置日视图的相关配置
+     * 包括设置当前日期标题等
+     */
+    private fun setupDayView(){
+        val currentDate = LocalDate.now()
+        // 设置日视图头部显示的日期文本
+        binding.dayHeaderText.text = DateTimeFormatter.ofPattern("yyyy年MM月dd日").format(currentDate)
+    }
+
+    /**
+     * 当 Fragment 的视图被销毁时调用
+     * 清理资源，避免内存泄漏
+     */
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
+~~~
+* 初始化界面组件
+* 设置 RecyclerView 和适配器
+* 从数据库加载当天事件数据
+* 更新界面显示
+* 使用 Room 数据库查询当天事件
+* 计算查询时间范围（当天开始到结束）
+* 异步加载数据并更新 UI
+* 处理空数据状态显示
+* 声明观察者，并在 **OnViewCreated** 中激活观察者，通过 **EventUpdateManager.getInstance().eventUpdated.observe()** 来监听 **eventUpdated** 的改变
+
+6. 创建事件管理类 EventUpdateManager.kt 使用 LiveData 机制，监听数据更新，刷新UI
+
+~~~kotlin
+/**
+ * 事件更新管理器
+ * 使用单例模式管理事件更新通知，防止频繁更新UI
+ */
+class EventUpdateManager private constructor(){
+    private val _eventUpdated = MutableLiveData<Boolean>()
+    val eventUpdated: LiveData<Boolean> = _eventUpdated
+
+    /**
+     * 上次通知时间戳
+     * 用于防抖处理，避免过于频繁的更新通知
+     */
+    private var lastNotifyTime = 0L
+    
+    /**
+     * 防抖间隔时间（毫秒）
+     * 两次通知之间的最小时间间隔
+     */
+    private val debounceInterval = 500L
+
+    /**
+     * 通知事件已添加
+     * 通过防抖机制控制通知频率，避免短时间内重复通知
+     */
+    fun notifyEventAdded(){
+        val currentTime = System.currentTimeMillis()
+        // 如果当前时间间隔小于防抖间隔，则不执行通知
+        if (currentTime - lastNotifyTime > debounceInterval){
+            _eventUpdated.value = true
+            lastNotifyTime = currentTime
+        }
+    }
+
+    companion object{
+        @Volatile
+        private var INSTANCE: EventUpdateManager? = null
+
+        /**
+         * 获取 EventUpdateManager 的单例实例
+         *
+         * @return EventUpdateManager 的单例对象
+         */
+        fun getInstance(): EventUpdateManager{
+            return INSTANCE ?: synchronized(this){
+                val instance = EventUpdateManager()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}
+~~~
+* 使用 **LiveData 机制**，可变的_eventUpdated 属性保存事件更新状态，不可变的eventUpdated 属性提供外部访问
+* 当事件变化调用 notifyEventAdded() 方法时，LiveData机制会通知所有**活跃的观察者**
+* 观察者调用相关方法，更新UI
+
+7. 在主活动 MainActivity.kt 中 **saveEventToDatabase** 方法中，当操作完成后，调用 EventUpdateManager.getInstance().notifyEventAdded() 方法通知事件已添加，通过 LiveData 机制，更新UI
+
+~~~kotlin
+// 在主线程中显示成功消息
+withContext(Dispatchers.Main){
+    Toast.makeText(this@MainActivity, "日程已添加，ID：$eventId", Toast.LENGTH_SHORT).show()
+
+    // 通知日程列表刷新
+    EventUpdateManager.getInstance().notifyEventAdded()
+
+}
+~~~
 
 
 
