@@ -2378,45 +2378,247 @@ alarmReminderManager.cancelReminder(requireContext(), event.id)
 //...其他代码
 ~~~
 
-11. 在MainActivity中的onCreate()方法下，添加权限检测和请求
+11. 创建权限管理类 PermissionManager.kt 来统一管理需要的权限，并引导用户授权
 
+* 在 domain/manager 下创建权限管理类
 ~~~kotlin
-checkAndRequestPermissions()
-Log.e("权限状态", checkAlarmPermissionStatus())
-~~~
+/**
+ * 权限管理器
+ * 负责检查、请求和管理应用程序所需的各种权限
+ */
+class PermissionManager(private val context: Context) {
 
-* 权限请求方法实现
-~~~kotlin
-private fun checkAndRequestPermissions(){
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        if (!alarmManager.canScheduleExactAlarms()){
+    companion object{
+        private const val TAG = "PermissionManager"
+        const val PERMISSION_GRANTED = 0 // 权限已授予
+        const val PERMISSION_REQUEST_NEEDED = 1 // 需要请求权限
+        const val PERMISSION_DENIED_PERMANENTLY = 2 // 权限被永久拒绝
+    }
+
+    /**
+     * 检查通知权限状态
+     * @return 权限状态 (PERMISSION_GRANTED, PERMISSION_REQUEST_NEEDED, PERMISSION_DENIED_PERMANENTLY)
+     */
+    fun checkNotificationPermission(): Int{
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
+            when {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    PERMISSION_GRANTED
+                }else -> {
+                    PERMISSION_REQUEST_NEEDED
+                }
+            }
+        } else {
+            PERMISSION_GRANTED
+        }
+    }
+
+    /**
+     * 检查浮窗权限状态
+     * @return true 如果已授予权限，否则 false
+     */
+    fun checkOverlayPermission(): Boolean{
+        return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
+            Settings.canDrawOverlays(context)
+        }else{
+            true
+        }
+    }
+
+    /**
+     * 检查精确闹钟权限状态
+     * @return true 如果已授予权限，否则 false
+     */
+    fun checkExactAlarmPermission(): Boolean{
+        return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.canScheduleExactAlarms()
+        }else{
+            true
+        }
+    }
+
+    /**
+     * 请求通知权限
+     * @param launcher 用于启动权限请求的 ActivityResultLauncher
+     */
+    fun requestNotificationPermission(launcher: ActivityResultLauncher<Intent>) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+            }
+            launcher.launch(intent)
+        }
+    }
+
+    /**
+     * 请求浮窗权限
+     * @param launcher 用于启动权限请求的 ActivityResultLauncher
+     */
+    fun requestOverlayPermission(launcher: ActivityResultLauncher<Intent>) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:${context.packageName}")
+            )
+            launcher.launch(intent)
+        }
+    }
+
+    /**
+     * 请求精确闹钟权限
+     * @param launcher 用于启动权限请求的 ActivityResultLauncher
+     */
+    fun requestExactAlarmPermission(launcher: ActivityResultLauncher<Intent>) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val intent = Intent().apply {
                 action = Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
             }
-            startActivity(intent)
+            launcher.launch(intent)
         }
+    }
+
+    /**
+     * 检查所有必需权限
+     * @return true 如果所有权限都已授予，否则 false
+     */
+    fun checkAllRequiredPermissions(): Boolean {
+        return checkOverlayPermission() &&
+                checkExactAlarmPermission() &&
+                checkNotificationPermission() == PERMISSION_GRANTED
+    }
+
+    /**
+     * 获取缺失权限的描述信息
+     * @return 包含缺失权限信息的列表
+     */
+    fun getMissingPermissionsDescription(): List<String> {
+        val missingPermissions = mutableListOf<String>()
+
+        if (!checkOverlayPermission()) {
+            missingPermissions.add("浮窗权限")
+        }
+
+        if (!checkExactAlarmPermission()) {
+            missingPermissions.add("精确闹钟权限")
+        }
+
+        if (checkNotificationPermission() != PERMISSION_GRANTED) {
+            missingPermissions.add("通知权限")
+        }
+
+        return missingPermissions
     }
 }
 ~~~
+* 管理类包含**检查权限**的方法，和引导用户授权的**请求**方法
+* 通过设置**Intent**跳转到系统设置页面
 
-* 权限检测方法实现
+---
+
+* 在 MainActivity 类内声明权限管理类
+
 ~~~kotlin
-private fun checkAlarmPermissionStatus(): String {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        if (alarmManager.canScheduleExactAlarms()) {
-            "精确闹钟权限已获得"
-        } else {
-            "仅能使用非精确提醒"
-        }
-    } else {
-        "精确闹钟权限已获得（Android 12以下版本）"
+private lateinit var permissionManager: PermissionManager
+~~~
+
+* 在 onCreate() 方法中初始化权限管理类
+
+~~~kotlin
+permissionManager = PermissionManager(this)
+~~~
+
+* 修改 checkAndRequestPermissions 方法
+
+~~~kotlin
+private fun checkAndRequestPermissions(){
+    // 检查精确闹钟权限
+    if (!permissionManager.checkExactAlarmPermission()) {
+        permissionManager.requestExactAlarmPermission(requestAlarmPermissionLauncher)
+    }
+
+    // 检查开启悬浮窗权限
+    if (!permissionManager.checkOverlayPermission()) {
+        permissionManager.requestOverlayPermission(requestOverlayPermissionLauncher)
+    }
+
+    // 检查通知权限
+    if (permissionManager.checkNotificationPermission() != PermissionManager.PERMISSION_GRANTED) {
+        // 可以选择请求通知权限
+        permissionManager.requestNotificationPermission(requestNotificationPermissionLauncher)
+    }
+}
+~~~
+* 调用 PermissionManager 类的 **权限检查方法** 若缺少权限则调用对应的**请求方法**
+---
+
+* 改进 ReminderReceiver 类中 showFloatingNotification() 方法中的浮窗权限检查逻辑
+
+~~~kotlin
+// 检查浮框权限
+if (!permissionManager.checkOverlayPermission()) {
+    if (!Settings.canDrawOverlays(context)) {
+        // 没有权限，尝试发送标准通知作为替代方案
+        // showStandardNotification(context, eventTitle, eventId)
+        Toast.makeText(context, "请授予悬浮窗权限以显示浮窗提醒", Toast.LENGTH_LONG).show()
+        return
     }
 }
 ~~~
 
+* 在 MainActivity 类中添加ActivityResultLauncher
 
+~~~kotlin
+// 添加这些ActivityResultLauncher
+private val requestAlarmPermissionLauncher = registerForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+) { result ->
+    // 处理闹钟权限请求结果
+    if (permissionManager.checkExactAlarmPermission()) {
+        Toast.makeText(this, "精确闹钟权限已授予", Toast.LENGTH_SHORT).show()
+    } else {
+        Toast.makeText(this, "精确闹钟权限被拒绝", Toast.LENGTH_SHORT).show()
+    }
+    Log.d("权限请求", "闹钟权限请求结果: ${result.resultCode}")
+}
+
+private val requestOverlayPermissionLauncher = registerForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+) { result ->
+    // 处理悬浮窗权限请求结果
+    if (permissionManager.checkOverlayPermission()) {
+        Toast.makeText(this, "悬浮窗权限已授予", Toast.LENGTH_SHORT).show()
+    } else {
+        Toast.makeText(this, "悬浮窗权限被拒绝，请手动开启", Toast.LENGTH_LONG).show()
+    }
+    Log.d("权限请求", "悬浮窗权限请求结果")
+}
+
+private val requestNotificationPermissionLauncher = registerForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+) { result ->
+    // 处理通知权限请求结果
+    when (permissionManager.checkNotificationPermission()) {
+        PermissionManager.PERMISSION_GRANTED -> {
+            Toast.makeText(this, "通知权限已授予", Toast.LENGTH_SHORT).show()
+        }
+        PermissionManager.PERMISSION_DENIED_PERMANENTLY -> {
+            Toast.makeText(this, "通知权限被永久拒绝，请在设置中手动开启", Toast.LENGTH_LONG).show()
+        }
+        else -> {
+            Toast.makeText(this, "通知权限被拒绝", Toast.LENGTH_SHORT).show()
+        }
+    }
+    Log.d("权限请求", "通知权限请求结果")
+}
+~~~
+* ActivityResultLauncher 用于启动其他Activity，并接收其返回结果，这里是用于处理**权限请求结果**
+* 流程：通过registerForActivityResult()方法**注册**ActivityResultLauncher，然后**传入PermissionManager**的请求方法中调用launch()方法**启动**Activity，最后接收其返回结果并**处理结果**
+---
+至此，我们能够在日程设定的提醒时间中弹出浮窗，并且播放提醒铃声和振动
 
 
 
