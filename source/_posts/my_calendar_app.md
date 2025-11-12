@@ -25,6 +25,8 @@ categories:
     - [点击按钮打开日程添加表单](#点击按钮打开日程添加表单)
     - [日程列表实现](#日程列表实现)
     - [日程修改实现](#日程修改实现)
+    - [日程删除实现](#日程删除实现)
+    - [日程切换完成状态实现](#日程切换完成状态实现)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -1610,6 +1612,8 @@ withContext(Dispatchers.Main){
 
 ### 日程修改实现
 
+[回到上一级](#日程添加)
+
 * 该步骤要实现 **DayViewFragment.kt** 中的 **editEvent()** 方法
 * 该方法的传递逻辑为 *editEvent() -> setupRecyclerView() -> onViewCreated()* 
 * 通过 EventCardAdapter 类中的 editButton.setOnClickListener() 方法触发调用
@@ -1843,6 +1847,105 @@ dialog.show()
 ~~~
 
 至此，我们可以通过点击修改按钮，弹出修改事件对话框，并完成修改事件操作
+
+### 日程删除实现
+
+[回到上一级](#日程添加)
+
+* 该步骤要实现 **DayViewFragment.kt** 中的 **deleteEvent()** 方法
+
+~~~kotlin
+/**
+ * 删除指定事件
+ *
+ * @param event 需要删除的事件对象
+ */
+private fun deleteEvent(event: CalendarEvent) {
+    // 添加删除事件逻辑
+}
+~~~
+
+1. 创建确认对话框
+
+~~~kotlin
+val dialogBuilder = AlertDialog.Builder(requireContext())
+dialogBuilder.setTitle("确认删除")
+dialogBuilder.setMessage("确定要删除事件 \"${event.title}\" 吗？ 此操作无法撤销。")
+~~~
+
+2. 设置确认按钮，并通过协程异步执行数据库操作
+
+~~~kotlin
+// 设置确认按钮
+dialogBuilder.setPositiveButton("删除"){_, _ ->
+    lifecycleScope.launch {
+        try {
+            // 获取数据库实例
+            val database = CalendarDatabase.getInstance(requireContext())
+            val eventDao = database.eventDao()
+
+            // 从数据库中删除事件
+            eventDao.deleteEvent(event)
+
+            // 通知事件更新
+            EventUpdateManager.getInstance().notifyEventAdded()
+
+            // 显示删除成功提示
+            Toast.makeText(context, "删除成功", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception){
+            // 捕获异常并显示错误提示
+            Toast.makeText(context, "删除失败：${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+~~~
+
+3. 创建取消按钮
+
+~~~kotlin
+// 设置取消按钮
+dialogBuilder.setNegativeButton("取消"){dialog, _ ->
+    dialog.dismiss()
+}
+~~~
+
+4. 显示对话框
+
+~~~kotlin
+dialogBuilder.create().show()
+~~~
+
+### 日程切换完成状态实现
+
+[回到上一级](#日程添加)
+
+* 该步骤要实现 **DayViewFragment.kt** 中的 **toggleEventCompletion()** 方法
+* 通过协程异步执行数据库操作
+* 通过 LiveData 观察者，刷新视图
+
+~~~kotlin
+private fun toggleEventCompletion(event: CalendarEvent, isCompleted: Boolean) {
+    // 添加切换事件完成状态逻辑
+    lifecycleScope.launch {
+        try {
+            val database = CalendarDatabase.getInstance(requireContext())
+            val eventDao = database.eventDao()
+
+            val updatedEvent = event.copy(isCompleted = isCompleted)
+
+            eventDao.updateEvent(updatedEvent)
+
+            // 通知事件更新
+            EventUpdateManager.getInstance().notifyEventAdded()
+            val message = if(isCompleted) "事件已完成" else "事件标记为未完成"
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        } catch (e: Exception){
+            Toast.makeText(context, "切换失败：${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+~~~
+
 
 
 
