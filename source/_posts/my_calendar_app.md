@@ -27,6 +27,7 @@ categories:
     - [日程修改实现](#日程修改实现)
     - [日程删除实现](#日程删除实现)
     - [日程切换完成状态实现](#日程切换完成状态实现)
+    - [日程提醒实现](#日程提醒实现)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -1946,8 +1947,474 @@ private fun toggleEventCompletion(event: CalendarEvent, isCompleted: Boolean) {
 }
 ~~~
 
+### 日程提醒实现
 
+[回到上一级](#日程添加)
 
+1. 在 AndroidManifest.xml 中`<manifest>`标签下添加权限
+
+~~~xml
+<!-- 铃声提醒服务权限 -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+~~~
+
+* **VIBRATE** - 允许应用控制振动功能
+* **WAKE_LOCK** - 允许应用防止处理器进入休眠状态或屏幕变暗
+* **RECEIVE_BOOT_COMPLETED** - 允许应用在系统完成启动后接收广播，常用于应用自启动
+* **POST_NOTIFICATIONS** - Android 13 (API 33)中引入的权限，允许应用发布通知
+* **SYSTEM_ALERT_WINDOW** - 允许应用创建系统级悬浮窗，显示在其他应用之上
+* **SCHEDULE_EXACT_ALARM** - 允许应用精确安排警报，常用于定时任务
+
+2. 在domain/manager/下创建日程提醒接收器类 ReminderReceiver.kt
+
+~~~kotlin
+class ReminderReceiver: BroadcastReceiver() {
+    // 类内逻辑
+}
+~~~
+
+* 当有事件提醒触发时，该接收器会处理提醒逻辑，包括显示**浮动通知**、**播放提示音**和**振动**等操作
+
+3. 在 ReminderReceiver.kt 类内创建伴生对象，定义了用于传递数据的常量键名
+
+~~~kotlin
+companion object{
+        /** 事件ID键名 */
+        const val EVENT_ID = "event_id"
+        /** 事件标题键名 */
+        const val EVENT_TITLE = "event_title"
+        /** 事件内容键名 */
+        const val EVENT_CONTENT = "event_content"
+        /** 是否为精确闹钟键名 */
+        const val IS_EXACT_ALARM = "is_exact_alarm"
+        /** 通知渠道ID */
+        private const val CHANNEL_ID = "event_reminder_channel"
+        /** 通知渠道名称 */
+        private const val CHANNEL_NAME = "Event Reminder"
+        /** 通知ID */
+        private const val NOTIFICATION_ID = 1001
+    }
+~~~
+
+4. 在 ReminderReceiver.kt 类内重写 **onReceive()** 方法，接收广播事件并处理提醒逻辑
+
+~~~kotlin
+override fun onReceive(context: Context, intent: Intent) {
+    val eventId = intent.getLongExtra(EVENT_ID, -1)
+    val eventTitle = intent.getStringExtra(EVENT_TITLE) ?: "Event Reminder"
+    val eventContent = intent.getStringExtra(EVENT_CONTENT) ?: ""
+    val isExactAlarm = intent.getBooleanExtra(IS_EXACT_ALARM, true) // 默认为精确闹钟
+
+    // 显示 Toast
+    val reminderType = if (isExactAlarm) "精确" else "非精确"
+    Toast.makeText(context, "事件提醒[$reminderType]：$eventTitle", Toast.LENGTH_LONG).show()
+
+    // 显示浮框提醒
+    showFloatingNotification(context, eventTitle, eventId)
+
+    // 振动
+    vibrate(context)
+
+    // 播放铃声
+    playNotificationSound(context)
+}
+~~~
+
+5. 实现onReceive()方法中的播放铃声方法 playNotificationSound()
+
+~~~kotlin
+private fun playNotificationSound(context: Context) {
+    try {
+        // 获取系统默认通知铃声
+        val notificationUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+
+        // 创建MediaPlayer实例并设置数据源
+        mediaPlayer = MediaPlayer().apply {
+            setDataSource(context, notificationUri)
+            // 设置音频流类型
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                val audioAttributes = AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .build()
+                setAudioAttributes(audioAttributes)
+            } else {
+                // 为保持向后兼容，API 21以下版本仍使用旧方法
+                @Suppress("DEPRECATION")
+                setAudioStreamType(AudioManager.STREAM_NOTIFICATION)
+            }
+            // 设置循环播放
+            isLooping = true
+            // 准备并开始播放
+            prepareAsync()
+
+            // 设置准备完成的监听器
+            setOnPreparedListener {
+                start()
+            }
+
+            // 设置30秒后停止播放
+            Handler(Looper.getMainLooper()).postDelayed({
+                stopNotificationSound()
+            }, 30000)
+        }
+    } catch (e: Exception){
+        fallbackToRingtone(context)
+        e.printStackTrace()
+    }
+}
+
+/**
+ * 备用方案：使用Ringtone播放通知声音
+ *
+ * @param context 上下文对象
+ */
+private fun fallbackToRingtone(context: Context) {
+    try {
+        val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val ringtone = RingtoneManager.getRingtone(context, notification)
+        ringtone.play()
+    }catch (e: Exception){
+        e.printStackTrace()
+    }
+}
+~~~
+
+* RingtoneManager.getDefaultUri() 方法用于获取**系统默认**的铃声
+* 使用 mediaPlayer 实现**循环播放**系统通知铃声，并设置30秒后停止播放
+* 若播放失败，则使用 fallbackToRingtone() 方法，使用 RingtoneManager.getRingtone() 方法播放系统默认铃声
+
+6. 实现onReceive()方法中的振动方法 vibrate()
+
+~~~kotlin
+/**
+ * 设备振动提醒
+ *
+ * @param context 上下文对象
+ */
+private fun vibrate(context: Context) {
+    val vibrator = context.getSystemService(Vibrator::class.java)
+    val vibrationPattern = longArrayOf(0, 500, 200, 500)
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+        val effect = VibrationEffect.createWaveform(vibrationPattern, 0)
+        vibrator.vibrate(effect)
+    } else{
+        @Suppress("DEPRECATION")
+        vibrator.vibrate(vibrationPattern, 0)
+    }
+}
+~~~
+
+7. 实现onReceive()方法中的显示浮框提醒方法 showFloatingNotification()
+
+* 创建浮窗提醒布局 notification_floating_layout.xml
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:background="#CC000000"
+    android:gravity="center_vertical">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/notification_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notification_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/stop_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="停止"
+        android:textColor="#FFFFFF"
+        android:background="#FF5555" />
+</LinearLayout>
+~~~
+
+* 实现显示浮窗提醒方法 showFloatingNotification()
+
+~~~kotlin
+/**
+ * 显示浮动通知窗口
+ *
+ * @param context 上下文对象
+ * @param eventTitle 事件标题
+ * @param eventId 事件ID
+ */
+private fun showFloatingNotification(
+    context: Context,
+    eventTitle: String,
+    eventId: Long
+) {
+    // 检查浮框权限
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (!Settings.canDrawOverlays(context)) {
+            // 没有权限，只显示通知
+            Toast.makeText(context, "请授予悬浮窗权限以显示浮窗提醒", Toast.LENGTH_LONG).show()
+            return
+        }
+    }
+
+    // 创建浮框视图
+    val layoutInflater = LayoutInflater.from(context)
+    val floatingView = layoutInflater.inflate(R.layout.notification_floating_layout, null)
+
+    // 设置浮框参数
+    val params = WindowManager.LayoutParams(
+        WindowManager.LayoutParams.MATCH_PARENT,
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        },
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+        PixelFormat.TRANSLUCENT
+    )
+
+    params.gravity = Gravity.TOP
+    params.x = 0
+    params.y = 100
+
+    // 获取 WindowManager
+    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+    // 添加浮框到窗口
+    windowManager.addView(floatingView, params)
+
+    // 设置标题和时间
+    val titleTextView = floatingView.findViewById<TextView>(R.id.notification_title)
+    val timeTextView = floatingView.findViewById<TextView>(R.id.notification_time)
+    val stopButton = floatingView.findViewById<Button>(R.id.stop_button)
+
+    titleTextView.text = eventTitle
+    timeTextView.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+
+    // 设置停止按钮点击事件
+    stopButton.setOnClickListener {
+        // 停止振动
+        @Suppress("DEPRECATION")
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        vibrator.cancel()
+
+        // 停止播放铃声
+        stopNotificationSound()
+
+        // 移除浮框
+        windowManager.removeView(floatingView)
+    }
+
+    // 5分钟后自动移除浮框并停止振动
+    Handler(Looper.getMainLooper()).postDelayed({
+        try {
+            // 停止振动
+            @Suppress("DEPRECATION")
+            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            vibrator.cancel()
+
+            // 移除浮框
+            windowManager.removeView(floatingView)
+        } catch (e: Exception) {
+            // 忽略异常
+        }
+    }, 5 * 60 * 1000) // 5分钟
+}
+~~~
+
+8. 在 domain/manager 下创建闹钟提醒管理器 AlarmReminderManager.kt 管理创建闹钟提醒和取消闹钟提醒
+
+~~~kotlin
+class AlarmReminderManager(private val context: Context) {
+    // 创建提醒和取消提醒方法
+}
+~~~
+
+* 创建提醒方法 setReminder() 
+实现
+~~~kotlin
+fun setReminder(event: CalendarEvent){
+    if(event.reminderTime <= 0) return
+
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val isExactAlarm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
+        alarmManager.canScheduleExactAlarms()
+    }else{
+        true
+    }
+
+    val intent = Intent(context, ReminderReceiver::class.java).apply {
+        putExtra(ReminderReceiver.EVENT_ID, event.id)
+        putExtra(ReminderReceiver.EVENT_TITLE, event.title)
+        putExtra(ReminderReceiver.EVENT_CONTENT, event.content)
+        putExtra(ReminderReceiver.IS_EXACT_ALARM, isExactAlarm) // 传递提醒类型信息
+    }
+
+    val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        event.id.toInt(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    if (isExactAlarm){
+        // 精确提醒
+        alarmManager.setExact(AlarmManager.RTC_WAKEUP, event.reminderTime, pendingIntent)
+    }else{
+        // 模糊提醒
+        alarmManager.setWindow(
+            AlarmManager.RTC_WAKEUP,
+            event.reminderTime,
+            event.reminderTime + 5 * 60 * 1000,
+            pendingIntent
+        )
+    }
+}
+~~~
+* 使用 **canScheduleExactAlarms()** 方法检查是否支持精确提醒，支持则使用精确提醒，否则使用模糊提醒
+* 通过 **putExtra()** 方法传递以键值对的方式传递的提醒信息
+* 通过 Intent 的**显式指定**广播接收者 ReminderReceiver
+* 通过**延迟执行**的 PendingIntent 创建一个广播请求
+* 以事件id为请求码，确保广播的**唯一性**
+* 通过 AlarmManager 在**指定时间触发** PendingIntent 系统会确保将广播发送给指定的接收者
+
+---
+
+* 创建取消提醒方法 cancelReminder()
+
+~~~kotlin
+fun cancelReminder(context: Context, eventId: Long){
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val intent = Intent(context, ReminderReceiver::class.java)
+    val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        eventId.toInt(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    alarmManager.cancel(pendingIntent)
+}
+~~~
+* alarmManager通过唯一的请求码取消指定的PendingIntent
+
+9. 在 AndroidManifest.xml 中`<manifest>/<application>`标签下注册广播接收者 ReminderReceiver
+~~~xml
+<!-- 添加广播接收器声明 -->
+<receiver android:name=".domain.manager.ReminderReceiver"
+    android:enabled="true"
+    android:exported="false"/>
+~~~
+
+10. 在增删改事件时调用 AlarmReminderManager 管理创建和取消提醒
+
+* 在MainActivity的saveEventToDatabase()方法中，添加日程提醒
+
+~~~kotlin
+//...其他代码
+// 获取数据库实例并插入事件
+val database = CalendarDatabase.getInstance(this@MainActivity)
+val eventId = database.eventDao().insertEvent(event)
+
+// 设置提醒
+val alarmReminderManager = AlarmReminderManager(applicationContext)
+if (reminderTime > 0){
+    alarmReminderManager.setReminder(event)
+}
+//...其他代码
+~~~
+
+* 在DayViewFragment中的editEvent()方法下，先取消原来事件的提醒，在设置新的日程对象的提醒
+
+~~~kotlin
+//...其他代码
+// 更新事件到数据库
+eventDao.updateEvent(updatedEvent)
+
+// 取消原有的提醒
+val alarmReminderManager = AlarmReminderManager(requireContext())
+alarmReminderManager.cancelReminder(requireContext(), event.id)
+// 设置新的提醒
+if (reminderTime > 0L){
+    alarmReminderManager.setReminder(updatedEvent)
+}
+//...其他代码
+~~~
+
+* 在DayViewFragment中的deleteEvent()方法下，取消提醒
+
+~~~kotlin
+//...其他代码
+// 从数据库中删除事件
+eventDao.deleteEvent(event)
+
+// 取消提醒
+val alarmReminderManager = AlarmReminderManager(requireContext())
+alarmReminderManager.cancelReminder(requireContext(), event.id)
+//...其他代码
+~~~
+
+11. 在MainActivity中的onCreate()方法下，添加权限检测和请求
+
+~~~kotlin
+checkAndRequestPermissions()
+Log.e("权限状态", checkAlarmPermissionStatus())
+~~~
+
+* 权限请求方法实现
+~~~kotlin
+private fun checkAndRequestPermissions(){
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        if (!alarmManager.canScheduleExactAlarms()){
+            val intent = Intent().apply {
+                action = Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+            }
+            startActivity(intent)
+        }
+    }
+}
+~~~
+
+* 权限检测方法实现
+~~~kotlin
+private fun checkAlarmPermissionStatus(): String {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        if (alarmManager.canScheduleExactAlarms()) {
+            "精确闹钟权限已获得"
+        } else {
+            "仅能使用非精确提醒"
+        }
+    } else {
+        "精确闹钟权限已获得（Android 12以下版本）"
+    }
+}
+~~~
 
 
 
