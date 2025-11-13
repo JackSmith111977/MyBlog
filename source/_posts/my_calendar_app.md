@@ -28,6 +28,7 @@ categories:
     - [日程删除实现](#日程删除实现)
     - [日程切换完成状态实现](#日程切换完成状态实现)
     - [日程提醒实现](#日程提醒实现)
+    - [日程排序展示](#日程排序展示)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -2619,6 +2620,25 @@ private val requestNotificationPermissionLauncher = registerForActivityResult(
 * 流程：通过registerForActivityResult()方法**注册**ActivityResultLauncher，然后**传入PermissionManager**的请求方法中调用launch()方法**启动**Activity，最后接收其返回结果并**处理结果**
 ---
 至此，我们能够在日程设定的提醒时间中弹出浮窗，并且播放提醒铃声和振动
+
+### 日程排序展示
+
+1. 在eventDao.kt中添加一个查询方法，按照提醒时间升序排序，并且未设置提醒时间的日程排在最后面
+
+~~~kotlin
+@Query("SELECT * FROM calendar_events WHERE startTime BETWEEN :start And :end ORDER BY CASE WHEN reminderTime = 0 THEN 1 ELSE 0 END, reminderTime ASC")
+suspend fun getEventsInRangeOrderByReminder(start: Long, end: Long): List<CalendarEvent>
+~~~
+
+2. 在 DayViewFragment 类中，修改 loadEventFromDatabase() 方法中的查询逻辑
+
+~~~kotlin
+val events = eventDao.getEventsInRangeOrderByReminder(startTimeStamp, endTimeStamp)
+~~~
+
+* 当然，你也可以按照你喜欢的方式进行排序，只需要修改查询语句即可
+
+
 
 
 
