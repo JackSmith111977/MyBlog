@@ -31,6 +31,7 @@ categories:
     - [日程排序展示](#日程排序展示)
     - [日视图日期切换](#日视图日期切换)
     - [日程的导出](#日程的导出)
+    - [日程的导入](#日程的导入)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -3110,8 +3111,311 @@ private val createImageFileLauncher = registerForActivityResult(
 
 至此，**导出功能**实现完毕
 
+### 日程的导入
+
+1. 创建事件导入管理类 ImportManager.kt 来实现导入事件的解析和数据库操作
+
+* 数据文件导入方法 importEventsFromJson() 和 importEventsToOriginalDates()
+~~~kotlin
+// 导入日程到当前日期
+fun importEventsFromJson(
+    uri: Uri,
+    targetDate: LocalDate,
+    scope: CoroutineScope,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit
+){
+    scope.launch {
+        try {
+            // 读取文件内容
+            val inputStream = withContext(Dispatchers.IO){
+                context.contentResolver.openInputStream(uri)
+            }
+
+            if(inputStream == null){
+                onError("无法打开文件")
+                return@launch
+            }
+
+            // 解析Json数据
+            val events = parseJsonEvents(inputStream)
+
+            // 调整事件日期并保存到数据库
+            saveEventToDatabase(events, targetDate)
+
+            onSuccess()
+        }catch (e: Exception){
+            Log.e(TAG, "导入事件失败: ${e.message}")
+            onError("导入事件失败: ${e.message}")
+        }
+    }
+}
+
+// 导入日程到数据文件中原有的日期
+fun importEventsToOriginalDates(
+    uri: Uri,
+    scope: CoroutineScope,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit
+){
+    scope.launch {
+        try{
+            // 读取文件内容
+            val inputStream = withContext(Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)
+            }
+
+            if (inputStream == null) {
+                onError("无法打开文件")
+                return@launch
+            }
+
+            // 解析Json数据
+            val events = parseJsonEvents(inputStream)
+
+            // 保存事件到其原始日期
+            saveEventToOriginalDates(events)
+
+            onSuccess()
+        }catch (e: Exception){
+            Log.e(TAG, "导入事件失败: ${e.message}")
+            onError("导入事件失败: ${e.message}")
+        }
+    }
+}
+~~~
+* 通过withContext(Dispatchers.IO)将读取文件内容放在**IO线程**中执行
+
+---
+
+* Json数据解析方法 parseJsonEvents()
+
+~~~kotlin
+private suspend fun parseJsonEvents(inputStream: InputStream): List<CalendarEvent>{
+    return withContext(Dispatchers.IO){
+        try{
+            val jsonString = inputStream.bufferedReader().use { it.readText() }
+            val gson = Gson()
+            val listType = object : TypeToken<List<CalendarEvent>>() {}.type
+            gson.fromJson(jsonString, listType) as List<CalendarEvent>
+        } finally {
+            inputStream.close()
+        }
+    }
+}
+~~~
+
+* 数据库操作方法 saveEventToDatabase() 和 saveEventToOriginalDates()
+
+~~~kotlin
+// 保存事件到原有日期
+private suspend fun CoroutineScope.saveEventToOriginalDates(events: List<CalendarEvent>) {
+    withContext(Dispatchers.IO){
+        val database = CalendarDatabase.getInstance(context)
+        val eventDao = database.eventDao()
+
+        events.forEach { event ->
+            // 检查事件是否已经存在
+            val existingEvents = eventDao.getEventsInRange(event.startTime, event.endTime)
+
+            // 检查是否已经存在相同标题和时间的事件
+            val isDuplicate = existingEvents.any { existingEvent ->
+                existingEvent.title == event.title &&
+                        existingEvent.startTime == event.startTime &&
+                        existingEvent.endTime == event.endTime
+            }
+
+            // 不存在重复事件，则插入新事件
+            if(!isDuplicate){
+                // 创建新的事件对象，保持原始日期和时间
+                val newEvent = event.copy(
+                    id = 0,
+                    title = event.title,
+                    content = event.content,
+                    startTime = event.startTime,
+                    endTime = event.endTime,
+                    eventColor = eventColorManager.getRandomColor(),
+                    reminderTime = event.reminderTime,
+                    isCompleted = event.isCompleted
+                )
+
+                // 插入到数据库
+                eventDao.insertEvent(newEvent)
+            }
+        }
 
 
+    }
+}
+
+private suspend fun CoroutineScope.saveEventToDatabase(
+    events: List<CalendarEvent>,
+    targetDate: LocalDate
+) {
+    withContext(Dispatchers.IO){
+        val database = CalendarDatabase.getInstance(context)
+        val eventDao = database.eventDao()
+
+        // 计算目标日期的时间戳范围
+        val targetStartOfDay = targetDate.atStartOfDay()
+        val targetEndOfDay = targetDate.atTime(23, 59, 59)
+
+        val targetStartTimestamp = targetStartOfDay.toInstant(ZoneOffset.UTC).toEpochMilli()
+        val targetEndTimestamp = targetEndOfDay.toInstant(ZoneOffset.UTC).toEpochMilli()
+
+        // 保存调整后的事件
+        events.forEach { event ->
+            // 保持原始事件的时长
+            val duration = event.endTime - event.startTime
+
+            // 创建新的事件对象，日期调整为目标日期，但保持原始的时间和时长
+            val newEvent = event.copy(
+                id = 0, // 设置为0，Room会自动生成新的id
+                startTime = targetStartTimestamp,
+                endTime = targetStartTimestamp + duration,
+                title = event.title,
+                content = event.content,
+                eventColor = eventColorManager.getRandomColor(),
+                reminderTime = if (event.reminderTime > 0){
+                    targetStartTimestamp + (event.reminderTime - event.startTime)
+                }else {
+                    0L
+                },
+                isCompleted = event.isCompleted
+            )
+
+            // 插入到数据库
+            eventDao.insertEvent(newEvent)
+        }
+    }
+}
+~~~
+* 插入新事件时，将id设置为**0**，Room会自动生成新的id
+
+2. 修改表单组件menu_export.xml
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_export_data"
+        android:title="导出为数据文件" />
+
+    <item
+        android:id="@+id/action_export_image"
+        android:title="导出为图片" />
+
+    <item
+        android:id="@+id/action_import_data_as_today"
+        android:title="导入数据为当天日程"/>
+
+    <item
+        android:id="@+id/action_import_data_to_original_dates"
+        android:title="导入数据为默认日程"/>
+</menu>
+~~~
+
+3. 在DayViewFragment中声明并初始化ImportManager
+
+* 类内声明ImportManager
+~~~kotlin
+private lateinit var importManager: ImportManager
+~~~
+
+* 在onViewCreated()方法中初始化ImportManager
+~~~kotlin
+// 初始化导入管理类
+importManager = ImportManager(requireContext())
+~~~
+
+
+
+4. 在DayViewFragment的showExportMenu()方法中添加导入功能
+
+~~~kotlin
+R.id.action_import_data_as_today -> {
+    importDataFileAsToday()
+    true
+}
+R.id.action_import_data_to_original_dates -> {
+    importDataFileToOriginalDates()
+    true
+}
+~~~
+
+5. 实现importDataFileAsToday()和importDataFileToOriginalDates()方法
+
+~~~kotlin
+private fun importDataFileToOriginalDates() {
+    val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+        type = "*/*"
+        addCategory(Intent.CATEGORY_OPENABLE)
+    }
+    importDataToOriginalDatesLauncher.launch(intent)
+}
+
+private fun importDataFileAsToday() {
+    val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+        type = "*/*"
+        addCategory(Intent.CATEGORY_OPENABLE)
+    }
+
+    importDataLauncher.launch(intent)
+}
+~~~
+
+6. 实现importDataLauncher和importDataToOriginalDatesLauncher
+
+~~~kotlin
+private val importDataToOriginalDatesLauncher = registerForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+){ result ->
+    if (result.resultCode == Activity.RESULT_OK){
+        val uri = result.data?.data
+        // 导入事件数据到原始日期
+        if (uri != null){
+            importManager.importEventsToOriginalDates(
+                uri,
+                viewLifecycleOwner.lifecycleScope,
+                onSuccess = {
+                    // 导入成功，刷新事件列表
+                    loadEventFromDatabase(selectedDate)
+                    Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT).show()
+                },
+                onError = { error ->
+                    Toast.makeText(requireContext(), "导入失败：$error", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
+}
+
+private val importDataLauncher = registerForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+){result ->
+    if (result.resultCode == Activity.RESULT_OK){
+        val uri = result.data?.data
+        if(uri != null){
+            // 导入事件数据
+            importManager.importEventsFromJson(
+                uri,
+                selectedDate,
+                viewLifecycleOwner.lifecycleScope,
+                onSuccess = {
+                    // 导入成功，刷新事件列表
+                    loadEventFromDatabase(selectedDate)
+                    Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT).show()
+                },
+                onError = { error ->
+                    Toast.makeText(requireContext(), "导入失败：$error", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
+}
+~~~
+
+至此，导入功能已经实现。
 
 
 
