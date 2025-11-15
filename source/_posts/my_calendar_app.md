@@ -29,6 +29,8 @@ categories:
     - [日程切换完成状态实现](#日程切换完成状态实现)
     - [日程提醒实现](#日程提醒实现)
     - [日程排序展示](#日程排序展示)
+    - [日视图日期切换](#日视图日期切换)
+    - [日程的导出](#日程的导出)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -2638,6 +2640,475 @@ val events = eventDao.getEventsInRangeOrderByReminder(startTimeStamp, endTimeSta
 
 * 当然，你也可以按照你喜欢的方式进行排序，只需要修改查询语句即可
 
+### 日视图日期切换
+
+1. 在 DayViewFragment.kt 类中添加一个变量来存储当前选择的日期
+
+~~~kotlin
+private var selectedDate: LocalDate = LocalDate.now()
+~~~
+
+2. 修改 DayViewFragment.kt 类中的 setupDayView 方法，添加点击监听器
+
+~~~kotlin
+// 添加点击监听器以打开日期选择器
+binding.dayHeaderText.setOnClickListener {
+    showDatePickerDialog()
+}
+~~~
+
+3. 实现展示日期选择器的方法 showDatePickerDialog() 的逻辑
+
+~~~kotlin
+private fun showDatePickerDialog() {
+    val datePicker = DatePickerDialog(
+        requireContext(),
+        { _, year, month, dayOfMonth ->
+            // 更新选定日期
+            selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
+
+            // 更新UI显示
+            binding.dayHeaderText.text = DateTimeFormatter.ofPattern("yyyy年MM月dd日").format(selectedDate)
+
+            // 重新加载事件数据
+            loadEventsForDate()
+        },
+        selectedDate.year,
+        selectedDate.monthValue - 1,
+        selectedDate.dayOfMonth
+    )
+    datePicker.show()
+}
+~~~
+
+4. 修改 loadEventFromDatabase() 方法，传入选择日期参数，从获取当天日期事件转换为选择的日期事件
+
+~~~kotlin
+/**
+ * 从数据库加载事件数据
+ * 异步查询数据库获取当天的所有事件，并更新UI显示
+ * - 修改loadEventFromDatabase方法,以接收日期参数
+ * - 更改为计算选定日期的开始和结束
+ */
+private fun loadEventFromDatabase(date: LocalDate){
+    lifecycleScope.launch {
+        try {
+            // 获取数据库实例
+            val database = CalendarDatabase.getInstance(requireContext())
+            val eventDao = database.eventDao()
+
+            // 更改为计算选定日期的开始和结束
+            val startOfDay = date.atStartOfDay()
+            val endOfDay = date.atTime(23, 59, 59)
+
+            val startTimeStamp = startOfDay.toInstant(ZoneOffset.UTC).toEpochMilli()
+            val endTimeStamp = endOfDay.toInstant(ZoneOffset.UTC).toEpochMilli()
+
+            // 查询数据库并获取事件
+            val events = eventDao.getEventsInRangeOrderByReminder(startTimeStamp, endTimeStamp)
+
+            // 更新UI
+            updateEventList(events)
+        } catch (e: Exception){
+            // 处理异常
+            Toast.makeText(context, "加载事件失败：${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+~~~
+
+### 日程的导出
+
+该步骤要实现将当天的日程导出为**json数据文件**，和**png图片文件**，并保存到手机中
+
+1. 创建一个图标资源文件 ic_export.xml 作为导出按钮的图标
+
+~~~xml
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorOnSurface">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M19,12v7L5,19v-7L3,12v7c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2v-7h-2zM13,12.67l2.59,-2.58L17,11.5l-5,5 -5,-5 1.41,-1.41L11,12.67L11,3h2z"/>
+</vector>
+~~~
+
+2. 修改日视图 fragment_day_view.xml 文件，增加一个横向线性布局，将日期标题和导出按钮添加到该布局中
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    日视图 Fragment 的布局文件
+    包含标题和日视图内容区域
+-->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical">
+
+    <!-- 新增日视图标题栏容器 -->
+    <LinearLayout
+        android:id="@+id/dayHeaderContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- 日视图标题文本 -->
+        <TextView
+            android:id="@+id/dayHeaderText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="日视图"
+            android:textAlignment="center"
+            android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
+
+        <!-- 导出按钮 -->
+        <ImageButton
+            android:id="@+id/exportButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_export"
+            android:contentDescription="导出"
+            android:padding="8dp"/>
+    </LinearLayout>
+
+    <!-- 无事件提示
+     - 修改layout_constraintTop_toBottomOf为dayHeaderContainer-->
+    <TextView
+        android:id="@+id/noEventText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="今天暂无事件"
+        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/dayHeaderContainer"/>
+
+    <!-- 事件列表
+     - 修改layout_constraintTop_toBottomOf为dayHeaderContainer-->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/eventRecyclerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:clipToPadding="false"
+        android:paddingBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/dayHeaderContainer"/>
+</androidx.constraintlayout.widget.ConstraintLayout>
+~~~
+
+3. 在 DayViewFragment.kt 类内声明导出按钮，并在 onCreateView 中初始化导出按钮
+
+* 声明导出按钮
+~~~kotlin
+private lateinit var exportButton: ImageButton
+~~~
+
+* 初始化导出按钮
+~~~kotlin
+exportButton = binding.exportButton // 初始化导出按钮
+~~~
+
+4. 创建menu资源 menu_export.xml ，作为点击导出按钮的菜单
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_export_data"
+        android:title="导出为数据文件" />
+
+    <item
+        android:id="@+id/action_export_image"
+        android:title="导出为图片" />
+
+    <item
+        android:id="@+id/action_import_data_as_today"
+        android:title="导入数据为当天日程"/>
+</menu>
+~~~
+
+5. 在 DayViewFragment.kt 中的 onViewCreated 方法中，为导出按钮添加点击事件监听器
+
+~~~kotlin
+// 添加导出按钮点击监听器
+exportButton.setOnClickListener {
+    showExportMenu(it)
+}
+~~~
+
+6. 实现导出按钮点击后显示菜单的逻辑，即showExportMenu() 方法
+
+~~~kotlin
+private fun showExportMenu(anchorView: View) {
+    val popupMenu = PopupMenu(requireContext(), anchorView)
+    val menuInflater: MenuInflater = popupMenu.menuInflater
+    menuInflater.inflate(R.menu.menu_export, popupMenu.menu)
+
+    popupMenu.setOnMenuItemClickListener { menuItem ->
+        when(menuItem.itemId){
+            R.id.action_export_data -> {
+                exportAsDataFile()
+                true
+            }
+            R.id.action_export_image -> {
+                exportAsImage()
+                true
+            }
+            R.id.action_import_data_as_today -> {
+                importDataFileAsToday()
+                true
+            }
+            else -> false
+        }
+    }
+
+    popupMenu.show()
+}
+~~~
+* PopupMenu，即弹出菜单，总是相对于**锚点视图**出现在锚点视图的**底部**或**旁边**
+* PopupMenu支持模态显示，当 PopupMenu 显示时，用户需要**先与其交互**才能继续操作应用其他部分
+* 这里在导出按钮监听器中传入的 it ，即以导出按钮自身作为锚点视图
+* 使用 **manuInflater.inflate()** 方法将 menu_export.xml 填充到 popupMenu 中
+
+7. 在domain/manager中创建导出管理类ExportManager.kt 实现导出数据的获取和图片的绘制
+
+* 创建导出管理类ExportManager.kt
+~~~kotlin
+class ExportManager(private val context: Context) {
+    companion object{
+        private const val TAG = "ExportingManager"
+    }
+}
+~~~
+
+* 获取导出数据
+~~~kotlin
+/**
+ * 获取指定日期的事件数据并转换为JSON格式
+ * @param date 指定日期
+ * @param scope 协程作用域
+ * @param onSuccess 成功回调，返回JSON格式的字节数组
+ * @param onError 失败回调
+ */
+fun getEventsDataAsJson(
+    date: LocalDate,
+    scope: CoroutineScope,
+    onSuccess: (ByteArray) -> Unit,
+    onError: (String) -> Unit
+) {
+    scope.launch {
+        try {
+            // 获取数据库实例
+            val database = CalendarDatabase.getInstance(context)
+            val eventDao = database.eventDao()
+
+            // 计算指定日期开始和结束时间戳
+            val startOfDay = date.atStartOfDay()
+            val endOfDay = date.atTime(23, 59, 59)
+
+            val startTimestamp = startOfDay.toInstant(ZoneOffset.UTC).toEpochMilli()
+            val endTimestamp = endOfDay.toInstant(ZoneOffset.UTC).toEpochMilli()
+
+            // 查询该日期的事件
+            val events = eventDao.getEventsInRangeOrderByReminder(startTimestamp, endTimestamp)
+
+            // 转换为JSON格式
+            val gson = Gson()
+            val jsonString = gson.toJson(events)
+            val byteArray = jsonString.toByteArray(Charsets.UTF_8)
+
+            onSuccess(byteArray)
+        } catch (e: Exception) {
+            Log.e(TAG, "获取事件数据失败：${e.message}")
+            onError(e.message ?: "未知错误")
+        }
+    }
+}
+~~~
+
+* 引入Gson依赖
+~~~gradle
+implementation("com.google.code.gson:gson:2.10.1")
+~~~
+
+* 绘制图片
+~~~kotlin
+/**
+ * 创建指定视图的截图
+ * @param view 要截图的视图
+ * @return 截图的Bitmap对象
+ */
+fun takeScreenshot(recyclerView: RecyclerView): Bitmap {
+    // 启用绘制缓存
+    recyclerView.measure(
+        View.MeasureSpec.makeMeasureSpec(recyclerView.width, View.MeasureSpec.EXACTLY),
+        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+    )
+
+    recyclerView.layout(0, 0, recyclerView.measuredWidth, recyclerView.measuredHeight)
+
+    // 创建足够大的Bitmap来容纳所有内容
+    val bitmap = createBitmap(recyclerView.width, recyclerView.measuredHeight)
+    val canvas = Canvas(bitmap)
+    recyclerView.draw(canvas)
+    return bitmap
+}
+~~~
+* 启用**绘制缓存**，捕获视图某一时刻的快照，避免性能损失
+* 宽度采用EXACTLY；而高度采用UNSPECIFIED，这样图片会**自动适应**视图的高度，可以显示超出屏幕显示的部分
+* 使用 createBitmap() 方法创建一个Bitmap对象，并传入视图的宽度和高度
+* 使用 Canvas 对象**绑定**bitmap，调用draw() 方法，将recyclerView**绘制**在canvas上
+
+---
+
+* 将bitmap转换为字节数组
+
+~~~kotlin
+/**
+ * 将Bitmap转换为PNG格式的字节数组
+ * @param bitmap 要转换的Bitmap
+ * @return PNG格式的字节数组
+ */
+fun convertBitmapToPngByteArray(bitmap: Bitmap): ByteArray {
+    val outputStream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+    return outputStream.toByteArray()
+}
+~~~
+* compress() 方法指定**压缩格式**，**压缩质量**和**输出流**
+* 这里指定输出格式为 PNG，质量为 100，输出流为 outputStream(内存输出流)
+
+8. 在 DayViewFragment 类内声明导出管理类，并在onCreateView中初始化
+
+* 声明
+~~~kotlin
+private lateinit var exportManager: ExportManager
+~~~
+
+* 初始化
+~~~kotlin
+exportManager = ExportManager(requireContext())
+~~~
+* 在 Fragment 中，使用上下文都要指定为 **requireContext()**
+* Fragment不像Activity那样直接继承Context，它需要**通过Activity来获取Context**
+* 在Fragment的生命周期中，Context的可用性是**变化的**
+
+9. 实现showExportMenu()中的导出功能
+
+* 导出为数据文件 exportAsDataFile() 方法
+~~~kotlin
+private fun exportAsDataFile() {
+    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = "application/json"
+        putExtra(Intent.EXTRA_TITLE, "calendar_events_${selectedDate}.json")
+    }
+    createDataFileLauncher.launch(intent)
+}
+~~~
+* 调用 ACTION_CREATE_DOCUMENT 来打开系统文件选择器，让用户选择保存文件的**位置和名称**
+* `addCategory()` 方法指定CATEGORY_OPENABLE，即Intent的配置类型是**可打开的**
+* `type` 指定文件类型为JSON格式，文件选择器会根据MIME类型**过滤显示**的文件，系统会为创建的文件**提供合适的默认扩展名**，确保创建的文件类型与内容**匹配**
+* `putExtra(Intent.EXTRA_TITLE, "文件名")` 指定了**默认的文件名**
+
+---
+* 导出为图片文件 exportAsImageFile() 方法
+
+~~~kotlin
+private fun exportAsImage() {
+    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = "image/png"
+        putExtra(Intent.EXTRA_TITLE, "calendar_screenshot_${selectedDate}.png")
+    }
+    createImageFileLauncher.launch(intent)
+}
+~~~
+
+10. 分别完成 *createDataFileLauncher* 和 *createImageFileLauncher* 的实现，用于执行**启动文件创建流程**以及处理文件创建**结果的回调**
+
+* createDataFileLauncher 实现
+
+~~~kotlin
+private val createDataFileLauncher = registerForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+) { result ->
+    if (result.resultCode == Activity.RESULT_OK) {
+        val uri = result.data?.data
+        if (uri != null) {
+            // 获取事件数据并保存到文件
+            exportManager.getEventsDataAsJson(
+                selectedDate,
+                lifecycleScope,
+                onSuccess = { data ->
+                    try {
+                        requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
+                            outputStream.write(data)
+                        }
+                        Toast.makeText(requireContext(), "事件数据已保存", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(requireContext(), "保存失败：${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onError = { error ->
+                    Toast.makeText(requireContext(), "导出失败：$error", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
+}
+~~~
+* registerForActivityResult是Activity Result API的核心部分，用于**注册**一个ActivityResultLauncher，以便**启动**其他Activity并**处理返回的结果**
+* ActivityResultLauncher是Android Activity Result API中的一个核心组件，它是一个泛型类，用于**启动**其他Activity并**处理返回的结果**
+* 在这里启动的是launch传入的Intent
+* ActivityResultContracts是Android Activity Result API中的一个重要组成部分，它定义了Activity之间交互的契约，包括**输入参数类型**和**输出结果类型**
+* StartActivityForResult是ActivityResultContracts中的一种预定义契约；**输入类型：Intent** - 用于启动目标Activity的意图；**输出类型：ActivityResult** - 包含结果码和返回数据的封装对象
+* 通过result.data?.data获取**文件uri**，并在成功回调方法中使用contentResolver打开**文件输出流**，并通过uri写入getEventsDataAsJson()方法返回的数据
+---
+* createImageFileLauncher 实现
+~~~kotlin
+private val createImageFileLauncher = registerForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+) { result ->
+    if (result.resultCode == Activity.RESULT_OK) {
+        val uri = result.data?.data
+        if (uri != null) {
+            // 创建截图并保存到文件
+            val bitmap = exportManager.takeScreenshot(binding.eventRecyclerView)
+            val imageData = exportManager.convertBitmapToPngByteArray(bitmap)
+
+            try {
+                requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(imageData)
+                }
+                Toast.makeText(requireContext(), "截图已保存", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "保存失败：${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}
+~~~
+
+至此，**导出功能**实现完毕
 
 
 
