@@ -32,6 +32,8 @@ categories:
     - [日视图日期切换](#日视图日期切换)
     - [日程的导出](#日程的导出)
     - [日程的导入](#日程的导入)
+  - [网络订阅](#网络订阅)
+    - [周视图节日](#周视图节日)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -3417,10 +3419,385 @@ private val importDataLauncher = registerForActivityResult(
 
 至此，导入功能已经实现。
 
+## 网络订阅
 
+[回到目录](#目录)
 
+### 周视图节日
 
+[回到上一级](#网络订阅)
 
+1. 在AndroidManifest中添加网络权限
+
+~~~xml
+<!-- 添加网络权限 -->
+<uses-permission android:name="android.permission.INTERNET"/>
+~~~
+
+2. 创建能容纳一个节日的卡片资源 item_festival.xml
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="12dp">
+
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_notification"
+        android:layout_marginEnd="12dp" />
+
+    <TextView
+        android:id="@+id/festivalText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="16sp"
+        android:textColor="@android:color/black" />
+
+</LinearLayout>
+~~~
+
+3. 创建能容纳节日卡片的容器视图 fragment_today_festival.xml
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="今天的节日"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/festivalRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+</LinearLayout>
+~~~
+
+4. 在 fragment_week_view.xml 中添加 tabLayout 和 viewPager 以便容纳节日视图以及后续其他网络模块
+
+~~~xml
+    <!-- 模块选择栏 -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/moduleTabLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:tabMode="fixed"
+        app:tabGravity="fill"/>
+
+    <!-- 模块内容显示区域 -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/moduleViewPager"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"/>
+~~~
+
+5. 添加okhttp依赖
+
+* 在 libs.versions.toml 中添加
+
+~~~toml
+[versions]
+okhttp = "5.3.0"
+
+[libraries]
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+~~~
+
+* 在模块级 build.gradle 中添加
+
+~~~kotlin
+dependencies {
+    implementation(libs.okhttp)
+}
+~~~
+
+6. 在 domain/utils 下创建网络请求类 HolidayApiService.kt
+
+~~~kotlin
+class HolidayApiService {
+    private val client = OkHttpClient()
+    private val gson = Gson()
+
+    fun getHolidayInfo(date: LocalDate, callback: (HolidayResponse?) -> Unit){
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val dateString = date.format(formatter)
+        val url = "https://timor.tech/api/holiday/info/$dateString"
+
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+            .addHeader("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+            .addHeader("Connection", "keep-alive")
+            .addHeader("Upgrade-Insecure-Requests", "1")
+            .build()
+
+        client.newCall(request).enqueue(object : Callback{
+            override fun onFailure(call: Call, e: IOException) {
+                callback(null)
+                Log.e("HolidayApiService", "网络请求失败${e.message}", e)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!response.isSuccessful){
+                        Log.d("HolidayApiService", "获取的节假日信息${response.body.string()}")
+                        callback(null)
+                        return
+                    }
+
+                    val jsonData = response.body.string()
+                    try{
+                        val holidayResponse = gson.fromJson(jsonData, HolidayResponse::class.java)
+                        Log.d("HolidayApiService", "获取的节假日信息${holidayResponse}")
+                        callback(holidayResponse)
+                    }catch (e: Exception){
+                        Log.d("HolidayApiService", "获取的节假日信息${jsonData}")
+                        Log.e("HolidayApiService", "解析JSON数据失败${e.message}", e)
+                    }
+                }
+            }
+        })
+    }
+}
+~~~
+* 请求需要添加请求头，以模拟浏览器请求
+
+7. 在 presentation/viewmodel 下创建 SharedViewModel.kt 类，用于存放 LiveData 属性的变量，以实现某些变量改变时的监听，比如选择日期的变化
+
+~~~kotlin
+class SharedViewModel : ViewModel() {
+    private val _selectedDate = MutableLiveData<LocalDate>()
+    val selectedDate: LiveData<LocalDate> = _selectedDate
+
+    fun setSelectedDate(date: LocalDate) {
+        _selectedDate.value = date
+    }
+}
+~~~
+
+8. 在presentation/ui/adapter 下创建节日适配器 FestivalAdapter.kt 类，用于显示节日列表，获取数据并更新列表
+
+~~~kotlin
+class FestivalAdapter(private var festivals: List<String>) : RecyclerView.Adapter<FestivalAdapter.FestivalViewHolder> () {
+    inner class FestivalViewHolder(view: View): RecyclerView.ViewHolder(view){
+        val festivalText: TextView = view.findViewById(R.id.festivalText)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FestivalViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_festival, parent, false)
+        return FestivalViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: FestivalViewHolder, position: Int) {
+        holder.festivalText.text = festivals[position]
+    }
+
+    override fun getItemCount(): Int {
+        return festivals.size
+    }
+
+    fun updateFestivals(newFestivals: List<String>){
+        festivals = newFestivals
+        notifyDataSetChanged()
+    }
+}
+~~~
+
+9. 在 presentation/ui/adapter 下创建
+ModulePagerAdapter.kt 类，用于管理模块的页面
+
+~~~kotlin
+/**
+ * 模块化ViewPager适配器
+ *
+ * @param fragmentActivity FragmentActivity
+ * @param currentDate 当前日期
+ */
+class ModulePagerAdapter(fragmentActivity: FragmentActivity, private var currentDate: LocalDate = LocalDate.now()) : FragmentStateAdapter(fragmentActivity){
+
+    /**
+     * 获取模块数量
+     *
+     * @return 模块数量
+     */
+    override fun getItemCount(): Int = 1
+
+    /**
+     * 创建指定位置的Fragment
+     *
+     * @param position 位置
+     * @return 创建的Fragment
+     */
+    override fun createFragment(position: Int): Fragment {
+        return when(position){
+            0 -> TodayFestivalFragment.newInstance(currentDate)
+            else -> TodayFestivalFragment.newInstance(currentDate)
+        }
+    }
+}
+~~~
+
+10. 在 presentation/ui/fragment 下创建 TodayFestivalFragment.kt 类，用于显示特定日期的节日列表
+
+~~~kotlin
+class TodayFestivalFragment: Fragment() {
+
+    companion object{
+        private const val ARG_DATE = "arg_date"
+
+        fun newInstance(date: LocalDate): TodayFestivalFragment{
+            val fragment = TodayFestivalFragment()
+            val args = Bundle()
+            args.putSerializable(ARG_DATE, date.toString())
+            fragment.arguments = args
+            return fragment
+        }
+    }
+
+    private lateinit var holidayApiService: HolidayApiService
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var sharedViewModel: SharedViewModel
+    private var festivalAdapter: FestivalAdapter? = null
+    private var currentDate: LocalDate? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        sharedViewModel = ViewModelProvider(requireActivity())[SharedViewModel::class.java]
+
+        arguments?.getString(ARG_DATE)?.let {
+            currentDate = LocalDate.parse(it)
+        } ?: run {
+            currentDate = LocalDate.now()
+        }
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        sharedViewModel.selectedDate.observe(viewLifecycleOwner){date ->
+            updateFestivalsForDate(date)
+        }
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_today_festival, container, false)
+        recyclerView = view.findViewById(R.id.festivalRecyclerView)
+        recyclerView.layoutManager = LinearLayoutManager(context)
+        festivalAdapter = FestivalAdapter(emptyList())
+        recyclerView.adapter = festivalAdapter
+        holidayApiService = HolidayApiService()
+
+        currentDate?.let { updateFestivalsForDate(it) } ?:updateFestivalsForDate(LocalDate.now())
+
+        return view
+    }
+
+    fun updateFestivalsForDate(date: LocalDate){
+        currentDate = date
+        holidayApiService.getHolidayInfo(date){ response ->
+            activity?.runOnUiThread {
+                val festivals = mutableListOf<String>()
+
+                // 添加对空响应的检查
+                if (response == null) {
+                    // 网络请求失败或API返回空响应
+                    festivals.add("网络连接失败，请检查网络设置")
+                    festivalAdapter?.updateFestivals(festivals)
+                    return@runOnUiThread
+                }
+
+                if(response?.holiday != null){
+                    // 是节日
+                    festivals.add(response.holiday.name)
+                }else if (response?.type != null){
+                    // 不是节日
+                    if (response.type.type == 1){
+                        // 周末
+                        festivals.add(response.type.name)
+                    }else{
+                        // 工作日
+                        festivals.add("今天是${response.type.name}")
+                    }
+                }else{
+                    festivals.add("无法获取节日信息")
+                }
+
+                festivalAdapter?.updateFestivals(festivals)
+            }
+        }
+    }
+}
+~~~
+* 在 updateFestivalsForDate 方法中，调用HolidayApiService 的 getHolidayInfo 方法获取**指定日期**的节日信息
+* 在 onViewCreated 方法中，为selectedDate 设置**监听器**，当用户选择新的日期时，会调用 updateFestivalsForDate 方法更新显示的节日信息
+
+11. 在 WeekViewFragment.kt 类内声明相关类并在对应生命周期中初始化
+
+* 声明相关类
+~~~kotlin
+private lateinit var moduleAdapter: ModulePagerAdapter
+private lateinit var moduleTabLayout: TabLayout
+private lateinit var moduleViewPager: ViewPager2
+private lateinit var sharedViewModel: SharedViewModel
+~~~
+
+* 初始化
+
+~~~kotlin
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    sharedViewModel = ViewModelProvider(requireActivity())[SharedViewModel::class.java]
+}
+~~~
+* 剩下三个在onViewCreated 方法中初始化
+
+11. 在 WeekViewFragment.kt 中onViewCreated 方法中添加 setupModuleSection 方法，用于初始化模块部分
+
+~~~kotlin
+private fun setupModuleSection() {
+    moduleTabLayout = binding.root.findViewById(R.id.moduleTabLayout)
+    moduleViewPager = binding.root.findViewById(R.id.moduleViewPager)
+
+    // 设置viewPager
+    moduleAdapter = ModulePagerAdapter(requireActivity())
+    moduleViewPager.adapter = moduleAdapter
+
+    // 关联 TabLayout 和 ViewPager
+    TabLayoutMediator(moduleTabLayout, moduleViewPager){ tab, position ->
+        when(position){
+            0 -> {
+                tab.text = "节日"
+            }
+        }
+    }.attach()
+}
+~~~
+
+12. 在 setupWeekView 的 日期点击监听器中设置sharedViewModel中的selectedDate属性为点击的日期，通知观察者调用网络查询并更新UI
+
+~~~kotlin
+// 通过ViewModel更新选中的日期
+sharedViewModel.setSelectedDate(weekDay.date)
+~~~
 
 
 
