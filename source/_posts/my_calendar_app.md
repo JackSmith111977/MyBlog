@@ -32,6 +32,7 @@ categories:
     - [日视图日期切换](#日视图日期切换)
     - [日程的导出](#日程的导出)
     - [日程的导入](#日程的导入)
+  - [农历实现](#农历实现)
   - [网络订阅](#网络订阅)
     - [周视图节日](#周视图节日)
 
@@ -3418,6 +3419,125 @@ private val importDataLauncher = registerForActivityResult(
 ~~~
 
 至此，导入功能已经实现。
+
+## 农历实现
+
+1. 引入农历依赖
+
+* libs.versions.toml
+~~~toml
+[versions]
+lunarcalendar = "4.0.0"
+
+[libraries]
+lunarcalendar = { module = "com.github.XhinLiang:LunarCalendar", version.ref = "lunarcalendar" }
+~~~
+
+* 模块级 build.gradle
+~~~kotlin
+dependencies {
+    implementation(libs.lunarcalendar)
+}
+~~~
+
+2. 修改 calendar_day_layout.xml
+
+~~~xml
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <!-- 显示日期数字的文本视图 -->
+        <TextView
+            android:id="@+id/calendarDayText"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:gravity="center"
+            tools:text="22"
+            android:textSize="16sp"
+            android:textStyle="bold"/>
+
+        <!-- 显示农历的文本视图 -->
+        <TextView
+            android:id="@+id/calendarLunarText"
+            android:layout_width="42dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            tools:text="初一"
+            android:textSize="12sp"
+            android:textColor="#808080"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
+    </LinearLayout>
+~~~
+
+3. 在DayViewContainer和MonthDayViewContainer中添加农历文本
+
+* DayViewContainer.kt
+~~~kotlin
+    val lunarTextView: TextView = view.findViewById(R.id.calendarLunarText)
+~~~
+
+* MonthDayViewContainer.kt
+~~~kotlin
+    val lunarTextView: TextView = view.findViewById(com.kei.mycalendarapp.R.id.calendarLunarText)
+~~~
+
+4. 修改WeekViewBinder.kt
+
+* 在bind()方法中添加农历显示
+
+~~~kotlin
+// 设置农历信息
+val lunarText = getLunarText(data.date)
+container.lunarTextView.text = lunarText
+// 设置农历文本样式
+container.lunarTextView.textSize = 12f
+container.lunarTextView.setTextColor(Color.GRAY)
+container.lunarTextView.alpha = 0.8f // 设置半透明效果
+~~~
+
+* 实现getLunarText()方法
+
+~~~kotlin
+private fun getLunarText(date: LocalDate): String? {
+    val lunarCalendar = LunarCalendar.obtainCalendar(
+        date.year,
+        date.monthValue,
+        date.dayOfMonth
+    )
+    return lunarCalendar.lunarDay
+}
+~~~
+
+5. 修改 MonthDayViewBinder.kt 
+
+* 在bind()方法中添加农历显示
+~~~kotlin
+// 设置农历信息
+val lunarText = getLunarText(data.date)
+container.lunarTextView.text = lunarText
+// 设置农历文本样式
+container.lunarTextView.textSize = 12f
+container.lunarTextView.setTextColor(Color.GRAY)
+container.lunarTextView.alpha = 0.8f // 设置半透明效果
+~~~
+
+* 实现getLunarText()方法
+~~~kotlin
+private fun getLunarText(date: LocalDate): String? {
+    val lunarCalendar = LunarCalendar.obtainCalendar(
+        date.year,
+        date.monthValue,
+        date.dayOfMonth
+    )
+    return lunarCalendar.lunarDay
+}
+~~~
 
 ## 网络订阅
 
