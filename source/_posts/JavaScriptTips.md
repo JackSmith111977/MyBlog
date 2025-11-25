@@ -213,6 +213,10 @@ Number(undefined); // NaN
 
 - [数组字面量](#数组字面量)
 - [布尔字面量](#布尔字面量)
+- [数值字面量](#数值字面量)
+- [对象字面量](#对象字面量)
+- [正则表达式字面量](#正则表达式字面量)
+- [字符串字面量](#字符串字面量)
 
 #### 数组字面量
 [回到上一级](#字面量)
@@ -365,6 +369,41 @@ const re = /ab+c/;
 
 * 您可以对字符串字面量值调用 String 对象的任何方法
 * JavaScript 会自动将字符串字面量转换为**临时 String 对象**，调用方法，然后**丢弃**临时 String 对象
+
+字符串字面量允许使用**模板字符串**
+~~~javascript
+// Basic literal string creation
+`In JavaScript '\n' is a line-feed.`;
+
+// Multiline strings
+`In JavaScript, template strings can run
+ over multiple lines, but double and single
+ quoted strings cannot.`;
+
+// String interpolation
+const name = "Lev",
+  time = "today";
+`Hello ${name}, how are you ${time}?`;
+~~~
+* 模板字面量为构建字符串提供了语法糖
+
+除了普通字符之外，您还可以在字符串中包含特殊字符
+| 字符 | 描述 |
+| --- | --- |
+| \0 | 空字节 |
+| \b | 退格键 |
+| \f | 换页符 |
+| \n | 换行符 |
+| \r | 回车符 |
+| \t | 制表符 |
+| \v | 垂直制表符 |
+| \' | 撇号或单引号 |
+| \" | 双引号 |
+| \\ | 反斜杠字符 |
+| \XXX | 由最多三个八进制数字 XXX（介于 0 和 377 之间）指定的带有 Latin-1 编码的字符。例如，\251 是版权符号的八进制序列。 |
+| \xXX | 由两个十六进制数字 XX（介于 00 和 FF 之间）指定的带有 Latin-1 编码的字符。例如，\xA9 是版权符号的十六进制序列。 |
+| \uXXXX | 由四个十六进制数字 XXXX 指定的 Unicode 字符。例如，\u00A9 是版权符号的 Unicode 序列。请参阅Unicode 转义序列。 |
+| \u{XXXXX} | Unicode 码点转义。例如，\u{2F804} 与 Unicode 转义 \uD87E\uDC04 相同。 |
 
 
 
