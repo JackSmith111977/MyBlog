@@ -718,6 +718,175 @@ export default function TeaGathering() {
 * 依赖树有助于调试大型捆绑包带来的渲染速度过慢的问题，以及发现哪些捆绑代码可以被优化。
 
 
+## 添加交互
+[回到目录](#目录)
+
+### 响应事件
+[回到上一级](#添加交互)
+
+#### 添加事件处理函数
+[回到上一级](#响应事件)
+
+如需添加一个事件处理函数，你需要**先定义一个函数**，然后 将其作为 prop 传入 合适的 JSX 标签
+
+比如, 你想让按钮**点击时**弹出一个消息框
+~~~tsx
+export default function Button(){
+  function handleClick(){
+    alert('You clicked me!');
+  }
+
+  return (
+    <button onClick={handleClick}>
+      Click me 
+    </button>
+  )
+}
+~~~
+按照如下**三个步骤**，即可让它在用户点击时显示消息：
+* 在 Button 组件 **内部** 声明一个名为 handleClick 的函数。
+* 实现函数内部的逻辑（使用 alert 来显示消息）。
+* 添加 onClick={handleClick} 到 `<button>` JSX 中。
+
+**事件处理函数**有如下特点:
+
+* 通常在你的组件 **内部** 定义
+* 名称以 handle 开头，后跟事件名称
+
+你也可以在 JSX 中定义一个**内联的事件处理函数**
+~~~tsx
+export default function Button(){
+  return (
+    <button onClick={function handleClick(){
+      alert('You clicked me!')
+    }}>
+      Click me 
+    </button>
+  )
+}
+~~~
+
+或者直接使用更为简洁**箭头函数**
+~~~tsx
+export default function Button(){
+  return (
+    <button onClick={() => {
+      alert('You clicked me!')
+    }}>
+      Click me 
+    </button>
+  )
+}
+~~~
+
+**注意事项:**
+* 传递给事件处理函数的函数应**直接传递**，而非**调用**
+* **传递函数**只在事件触发时才执行, 而**调用函数**在渲染时会直接执行, 这是因为位于 JSX {} 之间的 JavaScript 会立即执行
+~~~tsx
+// 传递一个函数
+<button onClick={handleClick}>
+<button onClick={() => alert('You clicked me!')}>
+
+// 调用一个函数
+<button onClick={handleClick()}>
+<button onClick={alert('You clicked me!')}>
+~~~
+
+#### 在事件处理函数中读取props
+[回到上一级](#响应事件)
+
+由于事件处理函数声明于**组件内部**，因此它们可以**直接访问**组件的 props
+~~~tsx
+interface AlertButtonProps {
+  message: string;
+  children: React.ReactNode;
+}
+
+function AlertButton({message, children}: AlertButtonProps){
+  return(
+    <button onClick={() => alert(message)}>
+      {children}
+    </button>
+  )
+}
+
+export default function ToolBar(){
+  return (
+    <>
+      <AlertButton message="正在播放...">
+        播放
+      </AlertButton>
+      <AlertButton message="正在暂停...">
+        暂停
+      </AlertButton>
+    </>
+  )
+}
+~~~
+
+#### 将事件处理函数作为props传递
+[回到上一级](#响应事件)
+
+通常，我们会在父组件中定义子组件的事件处理函数
+~~~tsx
+interface ButtonProps {
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+interface PlayButtonProps {
+  movieName: string;
+}
+
+function Button({onClick, children}: ButtonProps){
+  return (
+    <button onClick={onClick}>
+      {children}
+    </button>
+  )
+}
+
+function PlayButton({movieName}: PlayButtonProps){
+  return(
+    <Button onClick={() => alert("正在播放" + movieName)}>
+      播放
+    </Button>
+  )
+}
+
+function UploadButton(){
+  function handleClick(){
+    alert("正在上传...")
+  }
+
+  return (
+    <Button onClick={handleClick}>
+      上传
+    </Button>
+  )
+}
+
+export default function ToolsBar(){
+  return (
+    <section>
+      <PlayButton movieName="《拔作岛》"/>
+      <UploadButton/>
+    </section>
+  )
+}
+~~~
+
+示例中，Toolbar 组件渲染了一个 PlayButton 组件和 UploadButton 组件：
+* PlayButton 将箭头函数`() => alert("正在播放" + movieName)`作为 onClick prop 传递给 Button 组件
+* UploadButton 将 handleClick 函数作为 onClick prop 传递给 Button 组件
+
+* 最后，你的 Button 组件接收一个名为 onClick 的 prop; 它直接将这个 prop 以 `onClick={onClick}` 方式传递给浏览器内置的 `<button>`
+* 当点击按钮时，React 会调用**传入的函数**
+
+
+
+
+
 
 
 
