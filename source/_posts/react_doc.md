@@ -13,6 +13,58 @@ categories:
 - [React笔记](#react笔记)
   - [目录](#目录)
   - [快速入门](#快速入门)
+    - [创建项目](#创建项目)
+      - [Vite构建项目](#vite构建项目)
+      - [运行项目](#运行项目)
+  - [项目结构](#项目结构)
+    - [包文件 package.json](#包文件-packagejson)
+      - [核心依赖](#核心依赖)
+      - [可执行命令](#可执行命令)
+    - [源码文件目录 src](#源码文件目录-src)
+      - [入口文件 main.tsx](#入口文件-maintsx)
+      - [根组件 App.tsx](#根组件-apptsx)
+  - [描述UI](#描述ui)
+    - [JSX的定义和使用](#jsx的定义和使用)
+      - [第一步: 导出组件并定义函数](#第一步-导出组件并定义函数)
+      - [第二步: 添加标签](#第二步-添加标签)
+      - [第三步: 使用组件](#第三步-使用组件)
+    - [组件的导入与导出](#组件的导入与导出)
+    - [JSX的规则](#jsx的规则)
+    - [JSX中使用JS表达式](#jsx中使用js表达式)
+    - [将Props传递给组件](#将props传递给组件)
+      - [步骤一: 将Props传递给子组件](#步骤一-将props传递给子组件)
+      - [步骤二: 在子组件中读取Props](#步骤二-在子组件中读取props)
+      - [步骤三: 添加一些逻辑](#步骤三-添加一些逻辑)
+      - [其他技巧](#其他技巧)
+        - [使用JSX展开语法传递Props](#使用jsx展开语法传递props)
+        - [将JSX作为子组件传递](#将jsx作为子组件传递)
+        - [Props随时间的变化](#props随时间的变化)
+    - [条件渲染](#条件渲染)
+      - [条件返回JSX](#条件返回jsx)
+      - [与运算符（\&\&）](#与运算符)
+      - [选择性地将 JSX 赋值给变量](#选择性地将-jsx-赋值给变量)
+    - [JSX中渲染列表](#jsx中渲染列表)
+    - [保持组件纯粹](#保持组件纯粹)
+      - [纯函数：组件作为公式](#纯函数组件作为公式)
+      - [局部突变: 组件的小秘密](#局部突变-组件的小秘密)
+    - [将UI视为树](#将ui视为树)
+  - [添加交互](#添加交互)
+    - [响应事件](#响应事件)
+      - [添加事件处理函数](#添加事件处理函数)
+      - [在事件处理函数中读取props](#在事件处理函数中读取props)
+      - [将事件处理函数作为props传递](#将事件处理函数作为props传递)
+      - [命名事件处理函数props](#命名事件处理函数props)
+      - [事件传播](#事件传播)
+      - [阻止传播](#阻止传播)
+      - [捕获阶段事件](#捕获阶段事件)
+      - [阻止默认行为](#阻止默认行为)
+    - [State: 组件的记忆](#state-组件的记忆)
+      - [State 变量](#state-变量)
+      - [第一个 Hook](#第一个-hook)
+      - [剖析 useState](#剖析-usestate)
+      - [为一个组件添加多个 state 变量](#为一个组件添加多个-state-变量)
+      - [State 的底层逻辑](#state-的底层逻辑)
+      - [State 是隔离且私有的](#state-是隔离且私有的)
 
 ## 快速入门
 
@@ -882,6 +934,609 @@ export default function ToolsBar(){
 
 * 最后，你的 Button 组件接收一个名为 onClick 的 prop; 它直接将这个 prop 以 `onClick={onClick}` 方式传递给浏览器内置的 `<button>`
 * 当点击按钮时，React 会调用**传入的函数**
+
+#### 命名事件处理函数props
+[回到上一级](#响应事件)
+
+内置组件（`<button>` 和 `<div>`）仅支持 **浏览器事件名称**，例如 onClick。但是，当你构建**自己的组件**时，你可以按你个人喜好命名事件处理函数的 prop。
+
+~~~tsx
+export default function App(){
+  return (
+    <div>
+      <Toolbar
+        onPlayMovie={() => alert('Playing Movie')}
+        onUploadImage={() => alert('Uploading Image')} 
+      />
+    </div>
+  )
+}
+
+interface ToolbarProps {
+  onPlayMovie: () => void;
+  onUploadImage: () => void;
+}
+
+function Toolbar({onPlayMovie, onUploadImage}: ToolbarProps){
+  return (
+    <>
+      <Button onClick={onPlayMovie}>Play Movie</Button>
+      <Button onClick={onUploadImage}>Upload Image</Button>
+    </>
+  )
+}
+
+interface ButtonProps {
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+function Button({onClick, children}: ButtonProps){
+  return (
+    <button onClick={onClick}>
+      {children}
+    </button>
+  )
+}
+~~~
+* 浏览器内置的 `<button>`（小写）仍然需要使用 onClick prop
+* 而自定义的 Button 组件接收到的 prop 名称可由你决定
+
+#### 事件传播
+[回到上一级](#响应事件)
+
+事件处理函数还将捕获任何来自子组件的事件。通常，我们会说事件会沿着树向上“冒泡”或“传播”：它从事件发生的地方开始，然后**沿着树向上传播**。
+
+~~~tsx
+export default function App(){
+  return (
+    <div className="Toolbar" onClick={() => alert("Clicked Toolbar")}>
+      <button onClick={() => alert("Playing Movie")}>Play Movie</button>
+      <button onClick={() => alert("Uploading Image")}>Upload Image</button>
+    </div>
+  )
+}
+~~~
+* 如果你点击任一按钮，它自身的 onClick 将首先执行，然后父级 `<div>` 的 onClick 会接着执行
+* 因此会出现两条消息。如果你点击 toolbar 本身，将只有父级 `<div>` 的 onClick 会执行
+
+#### 阻止传播
+[回到上一级](#响应事件)
+
+事件处理函数接收一个 **事件对象** 作为唯一的参数。按照惯例，它通常被称为 e ，代表 “event”（事件）。你可以使用此对象来**读取有关事件的信息**。这个事件对象还允许你**阻止传播**
+
+~~~tsx
+import type React from "react";
+import "./css/example.css"
+export default function App(){
+  return (
+    <div className="Toolbar" onClick={() => alert("Clicked Toolbar")}>
+      <Button onClick={() => alert("Playing Movie")}>Play Movie</Button>
+      <Button onClick={() => alert("Uploading Image")}>Upload Image</Button>
+    </div>
+  )
+}
+
+interface ButtonProps {
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+function Button({onClick, children}: ButtonProps){
+  return (
+    <button onClick={ e => {
+      e.stopPropagation();
+      onClick();
+    }}>
+      {children}
+    </button>
+  )
+}
+~~~
+**先阻止**事件的冒泡，**再执行**事件处理函数
+* React 调用了传递给 `<button>` 的 onClick 处理函数。
+* 定义在 Button 中的处理函数执行了如下操作：
+  * 调用 e.stopPropagation()，阻止事件进一步冒泡。
+  * 调用 onClick 函数，它是从 Toolbar 组件传递过来的 prop。
+* 在 Toolbar 组件中定义的函数，显示按钮对应的 alert。
+* 由于传播被阻止，父级 `<div>` 的 onClick 处理函数不会执行。
+
+#### 捕获阶段事件
+[回到上一级](#响应事件)
+
+每个事件分三个阶段传播：
+
+1. 它**向下传播**，调用所有的 onClickCapture 处理函数。
+2. 它执行被点击元素的 onClick 处理函数。
+3. 它**向上传播**，调用所有的 onClick 处理函数。
+
+~~~tsx
+export default function App(){
+  return (
+    <div className="Toolbar" 
+      onClickCapture={() => alert("div capture")}
+      onClick={() => alert("div click")}
+    >
+      <button 
+        onClickCapture={() => alert("button capture")}
+        onClick={() => alert("button click")}
+      >
+          Play Movie
+      </button>
+    </div>
+  )
+}
+~~~
+* 触发顺序为 div capture -> button capture -> button click -> div click
+
+#### 阻止默认行为
+[回到上一级](#响应事件)
+
+某些浏览器事件具有与事件相关联的默认行为。例如，点击 `<form>` 表单内部的按钮会触发表单提交事件，默认情况下将**重新加载整个页面**：
+
+~~~tsx
+export default function SignUp(){
+  return (
+    <>
+      <form
+        onSubmit={() => alert("提交表单!")}
+      >
+        <input/>
+        <button>提交</button>
+      </form>
+    </>
+  )
+}
+~~~
+
+你可以调用事件对象中的 **e.preventDefault()** 来阻止这种情况发生：
+
+~~~tsx
+export default function SignUp(){
+  return (
+    <>
+      <form
+        onSubmit={e => {
+          e.preventDefault()
+          alert("提交表单!")}}
+      >
+        <input/>
+        <button>提交</button>
+      </form>
+    </>
+  )
+}
+~~~
+
+
+### State: 组件的记忆
+[回到上一级](#添加交互)
+
+#### State 变量
+[回到上一级](#state-组件的记忆)
+
+为什么需要 State 变量：
+* 局部变量**无法在多次渲染中持久保存**。 当 React 再次渲染这个组件时，它会从头开始渲染——不会考虑之前对局部变量的任何更改
+* 更改局部变量**不会触发渲染**。 React 没有意识到它需要使用新数据再次渲染组件
+
+State 变量：
+* *State* 变量 用于**保存渲染间的数据**
+* *State setter* 函数 **更新变量**并触发 React **再次渲染**组件
+
+添加一个 state 变量：
+
+1. 要添加 state 变量，先从文件顶部的 React 中**导入** useState
+
+~~~tsx
+import { useState } from 'react';
+~~~
+
+2. 将普通变量的声明改为：
+
+~~~tsx
+const [index, setIndex] = useState(0);
+~~~
+* index 是一个 **state 变量**，setIndex 是对应的 **setter 函数**
+* 这里的 `[` 和 `]` 语法称为**数组解构**，它允许你从数组中读取值。 useState 返回的数组总是正好有两项
+
+示例程序：
+* 数据文件 data.ts
+~~~tsx
+export const sculptureList = [{
+  name: 'Homenaje a la Neurocirugía',
+  artist: 'Marta Colvin Andrade',
+  description: 'Although Colvin is predominantly known for abstract themes that allude to pre-Hispanic symbols, this gigantic sculpture, an homage to neurosurgery, is one of her most recognizable public art pieces.',
+  url: 'https://i.imgur.com/Mx7dA2Y.jpg',
+  alt: 'A bronze statue of two crossed hands delicately holding a human brain in their fingertips.'  
+}, {
+  name: 'Floralis Genérica',
+  artist: 'Eduardo Catalano',
+  description: 'This enormous (75 ft. or 23m) silver flower is located in Buenos Aires. It is designed to move, closing its petals in the evening or when strong winds blow and opening them in the morning.',
+  url: 'https://i.imgur.com/ZF6s192m.jpg',
+  alt: 'A gigantic metallic flower sculpture with reflective mirror-like petals and strong stamens.'
+}, {
+  name: 'Eternal Presence',
+  artist: 'John Woodrow Wilson',
+  description: 'Wilson was known for his preoccupation with equality, social justice, as well as the essential and spiritual qualities of humankind. This massive (7ft. or 2,13m) bronze represents what he described as "a symbolic Black presence infused with a sense of universal humanity."',
+  url: 'https://i.imgur.com/aTtVpES.jpg',
+  alt: 'The sculpture depicting a human head seems ever-present and solemn. It radiates calm and serenity.'
+}, {
+  name: 'Moai',
+  artist: 'Unknown Artist',
+  description: 'Located on the Easter Island, there are 1,000 moai, or extant monumental statues, created by the early Rapa Nui people, which some believe represented deified ancestors.',
+  url: 'https://i.imgur.com/RCwLEoQm.jpg',
+  alt: 'Three monumental stone busts with the heads that are disproportionately large with somber faces.'
+}, {
+  name: 'Blue Nana',
+  artist: 'Niki de Saint Phalle',
+  description: 'The Nanas are triumphant creatures, symbols of femininity and maternity. Initially, Saint Phalle used fabric and found objects for the Nanas, and later on introduced polyester to achieve a more vibrant effect.',
+  url: 'https://i.imgur.com/Sd1AgUOm.jpg',
+  alt: 'A large mosaic sculpture of a whimsical dancing female figure in a colorful costume emanating joy.'
+}, {
+  name: 'Ultimate Form',
+  artist: 'Barbara Hepworth',
+  description: 'This abstract bronze sculpture is a part of The Family of Man series located at Yorkshire Sculpture Park. Hepworth chose not to create literal representations of the world but developed abstract forms inspired by people and landscapes.',
+  url: 'https://i.imgur.com/2heNQDcm.jpg',
+  alt: 'A tall sculpture made of three elements stacked on each other reminding of a human figure.'
+}, {
+  name: 'Cavaliere',
+  artist: 'Lamidi Olonade Fakeye',
+  description: "Descended from four generations of woodcarvers, Fakeye's work blended traditional and contemporary Yoruba themes.",
+  url: 'https://i.imgur.com/wIdGuZwm.png',
+  alt: 'An intricate wood sculpture of a warrior with a focused face on a horse adorned with patterns.'
+}, {
+  name: 'Big Bellies',
+  artist: 'Alina Szapocznikow',
+  description: "Szapocznikow is known for her sculptures of the fragmented body as a metaphor for the fragility and impermanence of youth and beauty. This sculpture depicts two very realistic large bellies stacked on top of each other, each around five feet (1,5m) tall.",
+  url: 'https://i.imgur.com/AlHTAdDm.jpg',
+  alt: 'The sculpture reminds a cascade of folds, quite different from bellies in classical sculptures.'
+}, {
+  name: 'Terracotta Army',
+  artist: 'Unknown Artist',
+  description: 'The Terracotta Army is a collection of terracotta sculptures depicting the armies of Qin Shi Huang, the first Emperor of China. The army consisted of more than 8,000 soldiers, 130 chariots with 520 horses, and 150 cavalry horses.',
+  url: 'https://i.imgur.com/HMFmH6m.jpg',
+  alt: '12 terracotta sculptures of solemn warriors, each with a unique facial expression and armor.'
+}, {
+  name: 'Lunar Landscape',
+  artist: 'Louise Nevelson',
+  description: 'Nevelson was known for scavenging objects from New York City debris, which she would later assemble into monumental constructions. In this one, she used disparate parts like a bedpost, juggling pin, and seat fragment, nailing and gluing them into boxes that reflect the influence of Cubism’s geometric abstraction of space and form.',
+  url: 'https://i.imgur.com/rN7hY6om.jpg',
+  alt: 'A black matte sculpture where the individual elements are initially indistinguishable.'
+}, {
+  name: 'Aureole',
+  artist: 'Ranjani Shettar',
+  description: 'Shettar merges the traditional and the modern, the natural and the industrial. Her art focuses on the relationship between man and nature. Her work was described as compelling both abstractly and figuratively, gravity defying, and a "fine synthesis of unlikely materials."',
+  url: 'https://i.imgur.com/okTpbHhm.jpg',
+  alt: 'A pale wire-like sculpture mounted on concrete wall and descending on the floor. It appears light.'
+}, {
+  name: 'Hippos',
+  artist: 'Taipei Zoo',
+  description: 'The Taipei Zoo commissioned a Hippo Square featuring submerged hippos at play.',
+  url: 'https://i.imgur.com/6o5Vuyu.jpg',
+  alt: 'A group of bronze hippo sculptures emerging from the sett sidewalk as if they were swimming.'
+}];
+~~~
+* 一个数组，里面存放了12个对象，对象里面有5个属性，name，artist，description，url，alt
+<br>
+
+* 程序文件 App.js
+~~~tsx
+import "./css/example.css"
+
+import { useState } from 'react';
+import { sculptureList } from './data/data';
+
+export default function Gallery() {
+  const [index, setIndex] = useState(0);
+
+  function handleClick() {
+    setIndex(index + 1);
+  }
+
+  let sculpture = sculptureList[index];
+  return (
+    <>
+      <button onClick={handleClick}>
+        Next
+      </button>
+      <h2>
+        <i>{sculpture.name} </i> 
+        by {sculpture.artist}
+      </h2>
+      <h3>  
+        ({index + 1} of {sculptureList.length})
+      </h3>
+      <img 
+        src={sculpture.url} 
+        alt={sculpture.alt}
+      />
+      <p>
+        {sculpture.description}
+      </p>
+    </>
+  );
+}
+~~~
+* 点击 “Next” 按钮切换当前雕塑
+
+#### 第一个 Hook
+[回到上一级](#state-组件的记忆)
+
+* 在 React 中，useState 以及任何其他**以“use”开头**的函数都被称为 **Hook**
+* Hook 是特殊的函数，只在 React 渲染时有效
+
+注意事项：
+* Hooks ——以 use 开头的函数——只能在组件或自定义 Hook 的**最顶层调用**
+*  你不能在条件语句、循环语句或其他嵌套函数内调用 Hook
+
+#### 剖析 useState
+[回到上一级](#state-组件的记忆)
+
+当你调用 useState 时，你是在告诉 React 你想让这个组件记住一些东西：
+
+~~~tsx
+const [index, setIndex] = useState(0);
+~~~
+
+useState 的唯一参数是 state 变量的**初始值**。在这个例子中，index 的初始值被useState(0)设置为 0。
+
+<br>
+
+每次你的组件渲染时，**useState** 都会给你一个包含两个值的数组：
+
+1. state 变量 (index) 会**保存上次渲染的值**。
+2. state setter 函数 (setIndex) 可以**更新 state 变量**并**触发 React 重新渲染**组件。
+
+<br>
+
+对于刚刚的示例，经历了以下过程：
+
+1. **组件进行第一次渲染**。 因为你将 0 作为 index 的初始值传递给 useState，它将**返回 [0, setIndex]**。 React 记住 0 是最新的 state 值。
+2. **你更新了 state**。当用户点击按钮时，它会调用 setIndex(index + 1)。 index 是 0，所以它是 **setIndex(1)**。这告诉 React 现在**记住 index 是 1** 并触发下一次渲染。
+3. **组件进行第二次渲染**。React 仍然看到 useState(0)，但是因为 React **记住** 了你将 index 设置为了 1，它将**返回 [1, setIndex]**。
+4. 以此类推！
+
+#### 为一个组件添加多个 state 变量
+[回到上一级](#state-组件的记忆)
+
+~~~tsx
+// import "./css/example.css"
+
+import { useState } from 'react';
+import { sculptureList } from './data/data';
+
+export default function Gallery() {
+  const [index, setIndex] = useState(0);
+  // 增加是否展示更多细节的状态量
+  const [showMore, setShowMore] = useState(false)
+
+  function handleClick() {
+    setIndex(index + 1);
+  }
+
+  function handleMoreClick(){
+    setShowMore(!showMore)
+  }
+
+  let sculpture = sculptureList[index];
+  return (
+    <>
+      <button onClick={handleClick}>
+        Next
+      </button>
+      <h2>
+        <i>{sculpture.name} </i> 
+        by {sculpture.artist}
+      </h2>
+      <h3>  
+        ({index + 1} of {sculptureList.length})
+      </h3>
+
+      {/* 增加是否展示详细信息的按钮 */}
+      <button onClick={handleMoreClick}>
+        {showMore ? 'Hide' : 'show'} details
+      </button>
+      {showMore && <p>{sculpture.description}</p>}
+
+      <br/>
+
+      <img 
+        src={sculpture.url} 
+        alt={sculpture.alt}
+      />
+    </>
+  );
+}
+~~~
+* 你可以在一个组件中拥有**任意多种类型的 state 变量**。
+* 该组件有两个 state 变量，一个**数字 index** 和一个**布尔值 showMore**，点击 “Show Details” 会改变 showMore 的值
+
+#### State 的底层逻辑
+[回到上一级](#state-组件的记忆)
+
+
+在同一组件的每次渲染中，**Hooks 都依托于一个稳定的调用顺序**
+~~~js
+let componentHooks = [];
+let currentHookIndex = 0;
+
+// useState 在 React 中是如何工作的（简化版）
+function useState(initialState) {
+  let pair = componentHooks[currentHookIndex];
+  if (pair) {
+    // 这不是第一次渲染
+    // 所以 state pair 已经存在
+    // 将其返回并为下一次 hook 的调用做准备
+    currentHookIndex++;
+    return pair;
+  }
+
+  // 这是我们第一次进行渲染
+  // 所以新建一个 state pair 然后存储它
+  pair = [initialState, setState];
+
+  function setState(nextState) {
+    // 当用户发起 state 的变更，
+    // 把新的值放入 pair 中
+    pair[0] = nextState;
+    updateDOM();
+  }
+
+  // 存储这个 pair 用于将来的渲染
+  // 并且为下一次 hook 的调用做准备
+  componentHooks[currentHookIndex] = pair;
+  currentHookIndex++;
+  return pair;
+}
+
+function Gallery() {
+  // 每次调用 useState() 都会得到新的 pair
+  const [index, setIndex] = useState(0);
+  const [showMore, setShowMore] = useState(false);
+
+  function handleNextClick() {
+    setIndex(index + 1);
+  }
+
+  function handleMoreClick() {
+    setShowMore(!showMore);
+  }
+
+  let sculpture = sculptureList[index];
+  // 这个例子没有使用 React，所以
+  // 返回一个对象而不是 JSX
+  return {
+    onNextClick: handleNextClick,
+    onMoreClick: handleMoreClick,
+    header: `${sculpture.name} by ${sculpture.artist}`,
+    counter: `${index + 1} of ${sculptureList.length}`,
+    more: `${showMore ? 'Hide' : 'Show'} details`,
+    description: showMore ? sculpture.description : null,
+    imageSrc: sculpture.url,
+    imageAlt: sculpture.alt
+  };
+}
+
+function updateDOM() {
+  // 在渲染组件之前
+  // 重置当前 Hook 的下标
+  currentHookIndex = 0;
+  let output = Gallery();
+
+  // 更新 DOM 以匹配输出结果
+  // 这部分工作由 React 为你完成
+  nextButton.onclick = output.onNextClick;
+  header.textContent = output.header;
+  moreButton.onclick = output.onMoreClick;
+  moreButton.textContent = output.more;
+  image.src = output.imageSrc;
+  image.alt = output.imageAlt;
+  if (output.description !== null) {
+    description.textContent = output.description;
+    description.style.display = '';
+  } else {
+    description.style.display = 'none';
+  }
+}
+
+let nextButton = document.getElementById('nextButton');
+let header = document.getElementById('header');
+let moreButton = document.getElementById('moreButton');
+let description = document.getElementById('description');
+let image = document.getElementById('image');
+let sculptureList = [{
+  name: 'Homenaje a la Neurocirugía',
+  artist: 'Marta Colvin Andrade',
+  description: 'Although Colvin is predominantly known for abstract themes that allude to pre-Hispanic symbols, this gigantic sculpture, an homage to neurosurgery, is one of her most recognizable public art pieces.',
+  url: 'https://i.imgur.com/Mx7dA2Y.jpg',
+  alt: 'A bronze statue of two crossed hands delicately holding a human brain in their fingertips.'  
+}, {
+  name: 'Floralis Genérica',
+  artist: 'Eduardo Catalano',
+  description: 'This enormous (75 ft. or 23m) silver flower is located in Buenos Aires. It is designed to move, closing its petals in the evening or when strong winds blow and opening them in the morning.',
+  url: 'https://i.imgur.com/ZF6s192m.jpg',
+  alt: 'A gigantic metallic flower sculpture with reflective mirror-like petals and strong stamens.'
+}, {
+  name: 'Eternal Presence',
+  artist: 'John Woodrow Wilson',
+  description: 'Wilson was known for his preoccupation with equality, social justice, as well as the essential and spiritual qualities of humankind. This massive (7ft. or 2,13m) bronze represents what he described as "a symbolic Black presence infused with a sense of universal humanity."',
+  url: 'https://i.imgur.com/aTtVpES.jpg',
+  alt: 'The sculpture depicting a human head seems ever-present and solemn. It radiates calm and serenity.'
+}, {
+  name: 'Moai',
+  artist: 'Unknown Artist',
+  description: 'Located on the Easter Island, there are 1,000 moai, or extant monumental statues, created by the early Rapa Nui people, which some believe represented deified ancestors.',
+  url: 'https://i.imgur.com/RCwLEoQm.jpg',
+  alt: 'Three monumental stone busts with the heads that are disproportionately large with somber faces.'
+}, {
+  name: 'Blue Nana',
+  artist: 'Niki de Saint Phalle',
+  description: 'The Nanas are triumphant creatures, symbols of femininity and maternity. Initially, Saint Phalle used fabric and found objects for the Nanas, and later on introduced polyester to achieve a more vibrant effect.',
+  url: 'https://i.imgur.com/Sd1AgUOm.jpg',
+  alt: 'A large mosaic sculpture of a whimsical dancing female figure in a colorful costume emanating joy.'
+}, {
+  name: 'Ultimate Form',
+  artist: 'Barbara Hepworth',
+  description: 'This abstract bronze sculpture is a part of The Family of Man series located at Yorkshire Sculpture Park. Hepworth chose not to create literal representations of the world but developed abstract forms inspired by people and landscapes.',
+  url: 'https://i.imgur.com/2heNQDcm.jpg',
+  alt: 'A tall sculpture made of three elements stacked on each other reminding of a human figure.'
+}, {
+  name: 'Cavaliere',
+  artist: 'Lamidi Olonade Fakeye',
+  description: "Descended from four generations of woodcarvers, Fakeye's work blended traditional and contemporary Yoruba themes.",
+  url: 'https://i.imgur.com/wIdGuZwm.png',
+  alt: 'An intricate wood sculpture of a warrior with a focused face on a horse adorned with patterns.'
+}, {
+  name: 'Big Bellies',
+  artist: 'Alina Szapocznikow',
+  description: "Szapocznikow is known for her sculptures of the fragmented body as a metaphor for the fragility and impermanence of youth and beauty. This sculpture depicts two very realistic large bellies stacked on top of each other, each around five feet (1,5m) tall.",
+  url: 'https://i.imgur.com/AlHTAdDm.jpg',
+  alt: 'The sculpture reminds a cascade of folds, quite different from bellies in classical sculptures.'
+}, {
+  name: 'Terracotta Army',
+  artist: 'Unknown Artist',
+  description: 'The Terracotta Army is a collection of terracotta sculptures depicting the armies of Qin Shi Huang, the first Emperor of China. The army consisted of more than 8,000 soldiers, 130 chariots with 520 horses, and 150 cavalry horses.',
+  url: 'https://i.imgur.com/HMFmH6m.jpg',
+  alt: '12 terracotta sculptures of solemn warriors, each with a unique facial expression and armor.'
+}, {
+  name: 'Lunar Landscape',
+  artist: 'Louise Nevelson',
+  description: 'Nevelson was known for scavenging objects from New York City debris, which she would later assemble into monumental constructions. In this one, she used disparate parts like a bedpost, juggling pin, and seat fragment, nailing and gluing them into boxes that reflect the influence of Cubism’s geometric abstraction of space and form.',
+  url: 'https://i.imgur.com/rN7hY6om.jpg',
+  alt: 'A black matte sculpture where the individual elements are initially indistinguishable.'
+}, {
+  name: 'Aureole',
+  artist: 'Ranjani Shettar',
+  description: 'Shettar merges the traditional and the modern, the natural and the industrial. Her art focuses on the relationship between man and nature. Her work was described as compelling both abstractly and figuratively, gravity defying, and a "fine synthesis of unlikely materials."',
+  url: 'https://i.imgur.com/okTpbHhm.jpg',
+  alt: 'A pale wire-like sculpture mounted on concrete wall and descending on the floor. It appears light.'
+}, {
+  name: 'Hippos',
+  artist: 'Taipei Zoo',
+  description: 'The Taipei Zoo commissioned a Hippo Square featuring submerged hippos at play.',
+  url: 'https://i.imgur.com/6o5Vuyu.jpg',
+  alt: 'A group of bronze hippo sculptures emerging from the sett sidewalk as if they were swimming.'
+}];
+
+// 使 UI 匹配当前 state
+updateDOM();
+~~~
+* componentHooks用于**记住**所有hook状态
+* currentHookIndex用于**读取**当前hook状态
+* 每次调用`updateDOM()`时，会将currentHookIndex**归零**，同时会调用`Gallery()`，currentHookIndex从0开始**按顺序**依次读取componentHooks中的hook状态，刷新UI
+* 也就是说，react无需记住每个状态的名字匹配状态，只需要每次**按顺序**调用`useState()`即可
+
+#### State 是隔离且私有的
+[回到上一级](#state-组件的记忆)
+
+* State 是屏幕上组件实例内部的状态。
+* 换句话说，如果你渲染同一个组件两次，每个副本都会有**完全隔离**的 state！改变其中一个**不会影响**另一个。
+* 如果你希望两个画廊保持其 states 同步怎么办？在 React 中执行此操作的正确方法是**从子组件中删除 state** 并将其**添加到离它们最近的共享父组件**中
+
+
+
+
+
 
 
 
