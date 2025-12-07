@@ -65,6 +65,17 @@ categories:
       - [为一个组件添加多个 state 变量](#为一个组件添加多个-state-变量)
       - [State 的底层逻辑](#state-的底层逻辑)
       - [State 是隔离且私有的](#state-是隔离且私有的)
+    - [渲染和提交](#渲染和提交)
+      - [步骤一：触发一次渲染](#步骤一触发一次渲染)
+        - [初次渲染](#初次渲染)
+        - [状态更新时重新渲染](#状态更新时重新渲染)
+      - [步骤二：react渲染你的组件](#步骤二react渲染你的组件)
+      - [步骤三：react将更改提交到DOM上](#步骤三react将更改提交到dom上)
+      - [尾声：浏览器绘制](#尾声浏览器绘制)
+    - [State: 如同一张快照](#state-如同一张快照)
+      - [设置State会触发渲染](#设置state会触发渲染)
+      - [渲染会及时生成一张快照](#渲染会及时生成一张快照)
+      - [随时间变化的State](#随时间变化的state)
 
 ## 快速入门
 
@@ -1532,6 +1543,229 @@ updateDOM();
 * State 是屏幕上组件实例内部的状态。
 * 换句话说，如果你渲染同一个组件两次，每个副本都会有**完全隔离**的 state！改变其中一个**不会影响**另一个。
 * 如果你希望两个画廊保持其 states 同步怎么办？在 React 中执行此操作的正确方法是**从子组件中删除 state** 并将其**添加到离它们最近的共享父组件**中
+
+### 渲染和提交
+[回到上一级](#添加交互)
+
+#### 步骤一：触发一次渲染
+[回到上一级](#渲染和提交)
+
+有两种原因会导致组件的渲染:
+
+1. 组件的 **初次渲染**。
+2. 组件（或者其祖先之一）的 **状态发生了改变**。
+
+##### 初次渲染
+[回到上一级](#步骤一：触发一次渲染)
+
+当**应用启动时**，会触发初次渲染。框架和沙箱有时会隐藏这部分代码，但它是通过调用 `createRoot` 方法并传入目标 DOM 节点，然后用你的组件调用 `render` 函数完成的：
+
+Image.jsx
+~~~tsx
+export default function Image() {
+  return (
+    <img
+      src="https://i.imgur.com/ZF6s192.jpg"
+      alt="'Floralis Genérica' by Eduardo Catalano: a gigantic metallic flower sculpture with reflective petals"
+    />
+  );
+}
+~~~
+
+index.jsx
+~~~tsx
+import Image from './Image.js';
+import { createRoot } from 'react-dom/client';
+
+const root = createRoot(document.getElementById('root'))
+root.render(<Image />);
+~~~
+* `createRoot` 允许在浏览器的 DOM 节点中创建根节点以显示 React 组件
+* 试着注释掉 root.render()，然后你将会看到组件消失
+
+另外，你需要在根路径下修改 `index.html` 文件，将 body 标签下的 script 标签的 src 属性改为 index.jsx 的路径，才能使其生效
+
+##### 状态更新时重新渲染
+[回到上一级](#步骤一：触发一次渲染)
+一旦组件被初次渲染，你就可以通过使用 **set 函数** 更新其状态来触发之后的渲染。更新组件的状态会自动将一次渲染送入队列。
+
+#### 步骤二：react渲染你的组件
+[回到上一级](#渲染和提交)
+在你触发渲染后，React 会调用你的组件来确定要在屏幕上显示的内容。**“渲染中” 即 React 在调用你的组件**。
+
+* 在进行**初次渲染**时, React 会调用**根组件**。
+* 对于**后续的渲染**, React 会调用内部状态更新**触发了渲染的函数组件**。
+
+这个过程是**递归**的：
+* 如果更新后的组件会**返回某个另外的组件**，那么 React 接下来就会渲染 **那个** 组件
+* 而如果**那个**组件又返回了**某个组件**，那么 React 接下来就会渲染 **那个** 组件，以此类推
+* 这个过程会持续下去，直到**没有更多的嵌套组件**并且 React 确切知道哪些东西应该显示到屏幕上为止
+
+index.jsx
+~~~tsx
+import { createRoot } from "react-dom/client";
+import Gallery from "./Gallery";
+
+const root = createRoot(document.getElementById('root')!)
+root.render(<Gallery/>)
+~~~
+
+Gallery.jsx
+~~~tsx
+export default function Gallery() {
+    return (
+        <section>
+            <h1>Gallery</h1>
+            <Image />
+            <Image />
+            <Image />
+        </section>
+    )
+}
+
+function Image() {
+    return (
+        <img
+            src="https://i.imgur.com/ZF6s192.jpg"
+            alt="'Floralis Genérica' by Eduardo Catalano: a gigantic metallic flower sculpture with reflective petals"
+        />
+    );
+}
+~~~
+* 在**初次渲染**中， React 将会为`<section>`、`<h1>` 和三个 `<img>` 标签 创建 DOM 节点。
+* 在一次**重渲染过程**中, React 将**计算**它们的哪些属性（如果有的话）**自上次渲染以来已更改**。在下一步（提交阶段）之前，它不会对这些信息执行任何操作。
+* 渲染必须是纯计算：相同输入，相同输出，并且只做自己的事情
+
+#### 步骤三：react将更改提交到DOM上
+[回到上一级](#渲染和提交)
+
+在渲染（调用）你的组件之后，React 将会修改 DOM。
+
+* 对于**初次渲染**，React 会使用 appendChild() DOM API 将其创建的所有 DOM 节点放在屏幕上。
+* 对于**重渲染**，React 将应用最少的必要操作（在渲染时计算！），以使得 DOM 与最新的渲染输出相互匹配。
+
+#### 尾声：浏览器绘制
+[回到上一级](#渲染和提交)
+在渲染完成并且 React 更新 DOM 之后，浏览器就会重新绘制屏幕
+
+### State: 如同一张快照
+[回到上一级](#添加交互)
+
+#### 设置State会触发渲染
+[回到上一级](#state-如同一张快照)
+
+~~~tsx
+import { useState } from "react";
+
+export default function Form(){
+  const [isSent, setIsSent] = useState(false);
+  const [message, setMessage] = useState("hi");
+  if (isSent){
+    return <h1>Your message is on its way!</h1>
+  }
+  return (
+    <form onSubmit={e =>{
+      e.preventDefault();
+      setIsSent(true);
+      sentMessage(message);
+    }}>
+      <textarea
+      placeholder="message"
+      value={message}
+      onChange={e => setMessage(e.target.value)}/>
+      <button type="submit">Send</button>
+    </form>
+  )
+}
+
+function sentMessage(message: string){
+  console.log(message);
+}
+~~~
+当你单击按钮时会发生以下情况：
+
+1. 执行 onSubmit 事件处理函数。
+2. setIsSent(true) 将 isSent 设置为 true 并排列一个新的渲染。
+3. React 根据新的 isSent 值**重新渲染**组件。
+
+#### 渲染会及时生成一张快照
+[回到上一级](#state-如同一张快照)
+
+“正在渲染” 就意味着 React 正在调用你的组件——一个函数。你从该函数返回的 JSX 就像是在**某个时间点上 UI 的快照**。它的 props、事件处理函数和内部变量都是 **根据当前渲染时的 state** 被计算出来的
+
+当 React 重新渲染一个组件时：
+
+1. React 会**再次调用你的函数**
+2. 函数会返回**新的 JSX 快照**
+3. React 会**更新界面**以匹配返回的快照
+
+这是一个例子：你可能会以为点击“+3”按钮会调用 setNumber(number + 1) 三次从而使计数器递增三次
+~~~tsx
+import { useState } from "react";
+
+export default function Counter(){
+  const [number, setNumber] = useState(0);
+
+  return (
+    <>
+      <h1>{number}</h1>
+      <button onClick={() => {
+        setNumber(number + 1)
+        setNumber(number + 1)
+        setNumber(number + 1)
+      }}>+3</button>
+    </>
+  )
+}
+~~~
+* 请注意，每次点击**只会让 number 递增一次！**
+* 设置 state 只会**为下一次渲染**变更 state 的值。
+* 在第一次渲染期间，number 为 0，在第二次渲染之前，number 都会是 0
+* 这也就解释了为什么在 **那次渲染中的 onClick 处理函数中**，即便在调用了 setNumber(number + 1) 之后，number 的值也仍然是 0
+* 尽管你调用了三次 setNumber(number + 1)，但在 **这次渲染的** 事件处理函数中 number 会一直是 0，所以你会**三次将 state 设置成 1**
+* 由于 React 的批处理机制，这三个setNumber 被视为**同一次渲染**
+
+这次渲染等同于：
+~~~tsx
+<button onClick={() => {
+  setNumber(0 + 1);
+  setNumber(0 + 1);
+  setNumber(0 + 1);
+}}>+3</button>
+~~~
+
+#### 随时间变化的State
+[回到上一级](#state-如同一张快照)
+
+~~~tsx
+import { useState } from 'react';
+
+export default function Counter() {
+  const [number, setNumber] = useState(0);
+
+  return (
+    <>
+      <h1>{number}</h1>
+      <button onClick={() => {
+        setNumber(number + 5);
+        setTimeout(() => {
+          alert(number);
+        }, 3000);
+      }}>+5</button>
+    </>
+  )
+}
+~~~
+* 一个 state 变量的值**永远不会在一次渲染的内部发生变化**， 即使其事件处理函数的代码是**异步**的
+* 在 **那次渲染的** onClick 内部，number 的值即使在调用 setNumber(number + 5) 之后也还是 0
+* React 会使 state 的值**始终“固定”在一次渲染的各个事件处理函数内部**
+
+
+
+
+
+
+
 
 
 
