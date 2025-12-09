@@ -35,6 +35,12 @@ categories:
   - [农历实现](#农历实现)
   - [网络订阅](#网络订阅)
     - [周视图节日](#周视图节日)
+    - [周视图番组表](#周视图番组表)
+      - [第一步：定义数据模型](#第一步定义数据模型)
+      - [第二步：网络请求服务](#第二步网络请求服务)
+      - [第三步：UI设计](#第三步ui设计)
+      - [第四步：UI展示](#第四步ui展示)
+      - [第五步：优化缓存](#第五步优化缓存)
 
 
 ## kizitonwose/CalendarView 框架的使用
@@ -3918,6 +3924,539 @@ private fun setupModuleSection() {
 // 通过ViewModel更新选中的日期
 sharedViewModel.setSelectedDate(weekDay.date)
 ~~~
+
+### 周视图番组表
+[回到上一级](#网络订阅)
+
+#### 第一步：定义数据模型
+[回到上一级](#周视图番组表)
+
+在 data/local/entity 下**定义数据模型** BangumiResponse.kt 用于保存网络请求返回的数据，并持久化存储到Room数据库中
+
+~~~kotlin
+package com.kei.mycalendarapp.data.local.entity
+
+import com.kizitonwose.calendar.core.WeekDay
+
+data class BangumiResponse(
+    val weekday: Weekday,
+    val items: List<BangumiItem>
+)
+
+data class Weekday(
+    val en: String,
+    val cn: String,
+    val ja: String,
+    val id: Int
+)
+
+data class BangumiItem(
+    val id: Int,
+    val url: String,
+    val type: Int,
+    val name: String,
+    val name_cn: String,
+    val summary: String,
+    val air_date: String,
+    val air_weekday: Int,
+    val rating: Rating?,
+    val images: Images
+)
+
+data class Rating(
+    val total: Int,
+    val count: Map<String, Int>,
+    val score: Double
+)
+
+data class Images(
+    val large: String,
+    val common: String,
+    val medium: String,
+    val small: String,
+    val grid: String
+)
+~~~
+* BangumiResponse类：接受当天响应数据列表
+* Weekday类：接受星期数据
+* BangumiItem类：一部番剧的数据
+* Rating类：一部番剧的评分数据
+* Images类：一部番剧的图片数据
+
+#### 第二步：网络请求服务
+[回到上一级](#周视图番组表)
+
+在 domain/utils 下创建一个网络请求服务类 BangumiApiService.kt ，用于获取BangumiApi数据
+
+~~~kotlin
+class BangumiApiService {
+    private var client = OkHttpClient()
+    private val gson = Gson()
+    private val TAG = "BangumiApiService"
+
+    constructor(context: Context){
+        client = CacheManager.getInstance(context).okHttpClient
+    }
+
+    fun getBangumiCalendar(callback: (List<BangumiResponse>?) -> Unit){
+        val url = "https://api.bgm.tv/calendar"
+
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("User-Agent", "MyCalendarApp/1.0")
+            .addHeader("Accept", "application/json")
+            .build()
+
+        client.newCall(request).enqueue(object : Callback{
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "网络请求失败${e.message}", e)
+                callback(null)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                try {
+                    val body = response.body.string()
+                    if (response.isSuccessful){
+                        val listType = object : TypeToken<List<BangumiResponse>>() {}.type
+                        val bangumiList: List<BangumiResponse> = gson.fromJson(body, listType)
+                        callback(bangumiList)
+                    }else{
+                        Log.e(TAG, "获取番剧日历失败${response.code} ${response.message} ${body}")
+                        callback(null)
+                    }
+                } catch (e: Exception){
+                    Log.e(TAG, "解析JSON数据失败${e.message}", e)
+                    callback(null)
+                }
+            }
+        })
+    }
+
+    fun getBangumiForDate(date: LocalDate, callback: (List<BangumiItem>?) -> Unit){
+        getBangumiCalendar { bangumiList ->
+            if( bangumiList != null){
+                val dayOfWeek = date.dayOfWeek.value
+                val dayBangumi = bangumiList.find{ it.weekday.id == dayOfWeek}
+                callback(dayBangumi?.items)
+            } else{
+                callback(null)
+            }
+        }
+    }
+}
+~~~
+* 注意request需要添加请求头，模拟浏览器请求
+* 由于Api返回的是标准的Json数据，因此直接使用Gson解析即可
+* 利用数组的find方法，找到对应周几的番剧
+
+#### 第三步：UI设计
+
+1. 创建一个 item_anime_card.xml 文件，以卡片的形式展示每一步番剧的信息
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <ImageView
+            android:id="@+id/animeImageView"
+            android:layout_width="80dp"
+            android:layout_height="100dp"
+            android:scaleType="centerCrop"
+            android:contentDescription="番剧封面" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/animeTitleTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:maxLines="2"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/animeInfoTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="14sp"
+                android:textColor="@android:color/darker_gray"
+                android:maxLines="3"
+                android:ellipsize="end" />
+
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/addEventButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_add_event"
+            android:contentDescription="添加到日程" />
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>
+~~~
+
+2. 创建 fragment_anime_schedule.xml 文件，并使用 RecyclerView 显示动画日程列表
+
+~~~xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/animeRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp" />
+
+</LinearLayout>
+~~~
+
+3. 在 presentation/ui/adapter 中创建 AnimeAdapter.kt，用于将列表传入的每一部番剧的**信息**与**卡片视图**中的组件进行绑定
+
+~~~kotlin
+class AnimeAdapter(
+    private var animeList: List<BangumiItem>,
+    private val onAddToCalendarListener: (BangumiItem) -> Unit
+): RecyclerView.Adapter<AnimeAdapter.AnimeViewHolder>() {
+
+    inner class AnimeViewHolder(view: View): RecyclerView.ViewHolder(view){
+        val animeImageView: ImageView = view.findViewById(R.id.animeImageView)
+        val animeTitleTextView: TextView = view.findViewById(R.id.animeTitleTextView)
+        val animeInfoTextView: TextView = view.findViewById(R.id.animeInfoTextView)
+        val addEventButton: ImageButton = view.findViewById(R.id.addEventButton)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AnimeViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_anime_card, parent, false)
+        return AnimeViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: AnimeViewHolder, position: Int) {
+        val anime = animeList[position]
+
+        // 显示番剧标题
+        holder.animeTitleTextView.text = anime.name_cn.ifEmpty { anime.name }
+
+        // 显示番剧信息
+        val info = "播出日期: ${anime.air_date}\nID: ${anime.id}"
+        holder.animeInfoTextView.text = info
+
+        // 加载番剧封面
+        Log.d("AnimeAdapter", "Image URL: ${anime.images.medium}")
+        Glide.with(holder.animeImageView.context)
+            .load(anime.images.medium)
+            .placeholder(R.drawable.ic_placeholder)
+            .into(holder.animeImageView)
+
+        // 设置添加到日程的点击事件
+        holder.addEventButton.setOnClickListener {
+            onAddToCalendarListener(anime)
+        }
+    }
+
+    override fun getItemCount(): Int {
+        return animeList.size
+    }
+
+    fun updateAnimeList(newList: List<BangumiItem>){
+        animeList = newList
+        notifyDataSetChanged()
+    }
+}
+~~~
+* 使用Glide加载图片
+
+
+#### 第四步：UI展示
+[回到上一级](#周视图番组表)
+
+在 presentation/ui/fragment 下创建 AnimeSchcheduleFragment.kt 用于调用 BangumiApi **获取数据**，并调用 AnimeAdapter 将列表中的每一条**数据绑定**在UI上，同时**监听点击事件**，处理点击事件，将日程**持久化**到数据库中
+
+~~~kotlin
+class AnimeScheduleFragment: Fragment() {
+
+    companion object{
+        private const val ARG_DATE = "ARG_DATE"
+
+        fun newInstance(date: LocalDate): AnimeScheduleFragment{
+            val fragment = AnimeScheduleFragment()
+            val args = Bundle()
+            args.putSerializable(ARG_DATE, date.toString())
+            fragment.arguments = args
+            return fragment
+        }
+    }
+
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var animeAdapter: AnimeAdapter
+    private lateinit var bangumiApiService: BangumiApiService
+    private lateinit var eventColorManager: EventColorManager
+    lateinit var sharedViewModel: SharedViewModel
+    private var currentDate: LocalDate? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        sharedViewModel = ViewModelProvider(requireActivity())[SharedViewModel::class.java]
+
+        arguments?.getString(ARG_DATE)?.let {
+            currentDate = LocalDate.parse(it)
+        } ?: run {
+            currentDate = LocalDate.now()
+        }
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_anime_schedule, container, false)
+
+        recyclerView = view.findViewById(R.id.animeRecyclerView)
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+
+        animeAdapter = AnimeAdapter(emptyList()){anime ->
+            addToCalendar(anime)
+        }
+        recyclerView.adapter = animeAdapter
+
+        bangumiApiService = BangumiApiService(requireContext())
+
+        currentDate?.let { loadAnimeForDate(it) } ?: loadAnimeForDate(LocalDate.now())
+        return view
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // 监听日期变化
+        sharedViewModel.selectedDate.observe(viewLifecycleOwner){ date ->
+            loadAnimeForDate(date)
+        }
+
+    }
+
+    private fun loadAnimeForDate(date: LocalDate) {
+        currentDate = date
+        bangumiApiService.getBangumiForDate(date){ animeList ->
+            activity?.runOnUiThread {
+                if (animeList != null){
+                    animeAdapter.updateAnimeList(animeList)
+                }else{
+                    Toast.makeText(requireContext(), "获取动漫列表失败", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun addToCalendar(anime: BangumiItem){
+        // 获取选中的日期
+        val selectedDate = sharedViewModel.selectedDate.value ?: LocalDate.now()
+
+        // 解析播出时间（使用选中的日期，而不是动漫的原始播出日期）
+        val airDateTime = LocalDateTime.of(selectedDate, LocalTime.of(9, 0))
+
+        // 设置提醒时间为播出前15分钟
+        val reminderTime = airDateTime.minusMinutes(15)
+
+        val title = anime.name_cn.ifEmpty { anime.name }
+        val content = buildString {
+            append("番剧名称: ${anime.name_cn.ifEmpty { anime.name }}\n")
+            append("原名: ${anime.name}\n")
+            append("播出日期: ${anime.air_date}\n")
+            append("Bangumi链接: ${anime.url}")
+        }
+
+        addEvent(
+            title = title,
+            description = content,
+            date = selectedDate,  // 使用选中的日期
+            reminderTime = reminderTime
+        )
+    }
+
+    private fun addEvent(
+        title: String,
+        description: String,
+        date: LocalDate,
+        reminderTime: LocalDateTime
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val database = CalendarDatabase.getInstance(requireContext())
+                val eventDao = database.eventDao()
+                eventColorManager = EventColorManager()
+
+                // 检查是否存在同名事件
+                val startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                val endOfDay = date.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+                val existingEventCount = eventDao.getEventCountByTitleAndDate(title, startOfDay, endOfDay)
+
+                if (existingEventCount > 0) {
+                    // 如果已经存在同名事件，显示提示信息
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(requireContext(), "该动画已在当天日程中", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                val existsColors = getExistingEventColorsForDate(date)
+
+                // 创建事件
+                val event = CalendarEvent(
+                    id = 0,
+                    title = title,
+                    content = description,
+                    startTime = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                    endTime = date.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                    eventColor = eventColorManager.getColorForEvent(existsColors),
+                    reminderTime = reminderTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                    isCompleted = false
+                )
+
+                eventDao.insertEvent(event)
+
+                // 切换到主线程显示 Toast
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), "${event.title}已添加到日程", Toast.LENGTH_SHORT).show()
+                    EventUpdateManager.getInstance().notifyEventAdded()
+                    sharedViewModel.notifyNewEventAdded(date)
+                }
+            } catch (e: Exception){
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private suspend fun CoroutineScope.getExistingEventColorsForDate(selectedDate: LocalDate?): List<Int> {
+        // 1. 检查日期是否为空
+        if (selectedDate == null){
+            return emptyList()
+        }
+
+        // 2. 计算时间范围
+        val startOfDay = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endOfDay = selectedDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        // 3. 查询数据库获取指定日期的所有事件
+        val database = CalendarDatabase.getInstance(requireContext())
+        val events = async {
+            database.eventDao().getEventsInRange(startOfDay, endOfDay)
+        }.await()
+
+        // 4. 提取事件颜色
+        return events.map { it.eventColor }
+    }
+}
+~~~
+
+#### 第五步：优化缓存
+[回到上一级](#周视图番组表)
+
+使用缓存可以减少网络请求，提高性能。
+
+在 domain/utils 下创建 CacheManager.kt 文件，用于管理缓存
+
+~~~kotlin
+class CacheManager private constructor(context: Context){
+    companion object{
+        private const val CACHE_SIZE = (200 * 1024 * 1024).toLong() // 200 MB
+        private const val CACHE_TIME = 60 * 60 * 24 * 7 // 7天
+
+        @Volatile
+        private var INSTANCE: CacheManager? = null
+
+        fun getInstance(context: Context): CacheManager{
+            return INSTANCE?: synchronized(this){
+                INSTANCE ?: CacheManager(context.applicationContext).also { INSTANCE = it }
+            }
+        }
+    }
+
+    private val cache: Cache = Cache(File(context.cacheDir, "http_cache"), CACHE_SIZE)
+
+    private val cacheInterceptor = Interceptor { chain ->
+        val request = chain.request()
+        Log.d("CacheManager", "发起请求：${request.url}")
+
+        val originalResponse = chain.proceed(request)
+
+        // 检查是否来自缓存
+        val isFromCache =
+            originalResponse.header("X-Android-Response-Source")?.contains("CACHE") ?: false
+        if (isFromCache) {
+            Log.d("CacheManager", "来自缓存：${request.url}")
+        } else {
+            Log.d("CacheManager", "来自网络：${request.url}")
+        }
+        // 删除不存在的引用，直接构建缓存控制头部
+        originalResponse.newBuilder()
+            .header("Cache-Control", "public, max-age=$CACHE_TIME")
+            .removeHeader("Pragma")
+            .build()
+    }
+
+    private val offlineCacheInterceptor = Interceptor { chain ->
+        var request = chain.request()
+
+        if (!isNetworkAvailable(chain)) {
+            request = request.newBuilder()
+                .header("Cache-Control", "public, only-if-cached, max-stale=" + CACHE_TIME)
+                .build()
+        }
+
+        chain.proceed(request)
+    }
+
+    val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .cache(cache)
+        .addNetworkInterceptor(cacheInterceptor)
+        .addInterceptor(offlineCacheInterceptor)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    private fun isNetworkAvailable(chain: Interceptor.Chain): Boolean{
+        val connectivityManager = chain.connection()?.route()?.address?.toString()
+        // 检查网络状态的实际实现
+        return true
+    }
+}
+~~~
+* 使用单例实例，并且使用注解@Volatile修饰，确保多个线程可见
+* cacheInterceptor: 缓存拦截器，用于缓存请求和响应数据
+* offlineInterceptor: 离线拦截器，用于处理无网络情况
+* okHttpClient: 创建OkHttpClient实例，并设置超时时间为30秒
 
 
 
