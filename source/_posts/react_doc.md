@@ -76,6 +76,17 @@ categories:
       - [设置State会触发渲染](#设置state会触发渲染)
       - [渲染会及时生成一张快照](#渲染会及时生成一张快照)
       - [随时间变化的State](#随时间变化的state)
+    - [把一系列 state 更新加入队列](#把一系列-state-更新加入队列)
+      - [React 会对 state 更新进行批处理](#react-会对-state-更新进行批处理)
+      - [在下次渲染前多次更新同一个state](#在下次渲染前多次更新同一个state)
+      - [如果你在替换 state 后更新 state 会发生什么](#如果你在替换-state-后更新-state-会发生什么)
+      - [如果你在更新 state 后替换 state 会发生什么](#如果你在更新-state-后替换-state-会发生什么)
+      - [命名惯例](#命名惯例)
+    - [更新 state 中的对象](#更新-state-中的对象)
+      - [将 state 视为只读的](#将-state-视为只读的)
+      - [使用展开语法复制对象](#使用展开语法复制对象)
+      - [更新一个嵌套对象](#更新一个嵌套对象)
+      - [使用 Immer 编写简洁的更新逻辑](#使用-immer-编写简洁的更新逻辑)
 
 ## 快速入门
 
@@ -1759,6 +1770,528 @@ export default function Counter() {
 * 一个 state 变量的值**永远不会在一次渲染的内部发生变化**， 即使其事件处理函数的代码是**异步**的
 * 在 **那次渲染的** onClick 内部，number 的值即使在调用 setNumber(number + 5) 之后也还是 0
 * React 会使 state 的值**始终“固定”在一次渲染的各个事件处理函数内部**
+
+### 把一系列 state 更新加入队列
+[回到上一级](#添加交互)
+
+#### React 会对 state 更新进行批处理 
+[回到上一级](#把一系列-state-更新加入队列)
+
+* React 会等到事件处理函数中的**所有代码都运行完毕**再处理你的 state 更新
+* 只有在你的事件处理函数及其中**任何代码执行完成**之后，UI 才会更新
+* 这种特性也就是**批处理**
+
+#### 在下次渲染前多次更新同一个state
+[回到上一级](#把一系列-state-更新加入队列)
+
+如果你想在下次渲染之前**多次更新同一个 state**，你可以像 `setNumber(n => n + 1)` 这样传入一个根据队列中的前一个 state 计算下一个 state 的 **函数**，而不是像 `setNumber(number + 1)` 这样传入 **下一个 state 值**
+
+~~~tsx
+import { useState } from 'react';
+
+export default function Counter() {
+  const [number, setNumber] = useState(0);
+
+  return (
+    <>
+      <h1>{number}</h1>
+      <button onClick={(e) => {
+        e.preventDefault();
+        setNumber(number => number + 1)
+        setNumber(number => number + 1)
+        setNumber(number => number + 1)
+      }}>+3</button>
+    </>
+  )
+}
+~~~
+* 在这里，`n => n + 1` 被称为 **更新函数**
+* 当你将它传递给一个 state 设置函数时：
+
+    1. React 会将此函数**加入队列**，以便在事件处理函数中的所有其他代码运行后进行处理。
+    2. 在下一次渲染期间，React 会**遍历队列**并给你更新之后的最终 state。
+
+#### 如果你在替换 state 后更新 state 会发生什么 
+[回到上一级](#把一系列-state-更新加入队列)
+
+~~~tsx
+import { useState } from 'react';
+
+export default function Counter() {
+  const [number, setNumber] = useState(0);
+
+  return (
+    <>
+      <h1>{number}</h1>
+      <button onClick={(e) => {
+        e.preventDefault();
+        setNumber(number + 5)
+        setNumber(number => number + 1)
+      }}>+6</button>
+    </>
+  )
+}
+~~~
+* 这是事件处理函数告诉 React 要做的事情：
+
+    1. setNumber(number + 5)：number 为 0，所以 setNumber(0 + 5)。React 将 **“替换为 5”** 添加到其队列中。
+    2. setNumber(n => n + 1)：n => n + 1 是一个更新函数。 React 将 **该函数** 添加到其队列中。
+
+|更新队列| n |返回值|
+|---|---|---|
+|“替换为 5”|	0（未使用）|	5|
+|n => n + 1|	5	|5 + 1 = 6|
+
+* `setState(x)`实际上相当于`setState(n => x)`
+
+#### 如果你在更新 state 后替换 state 会发生什么 
+[回到上一级](#把一系列-state-更新加入队列)
+
+~~~tsx
+import { useState } from 'react';
+
+export default function Counter() {
+  const [number, setNumber] = useState(0);
+
+  return (
+    <>
+      <h1>{number}</h1>
+      <button onClick={(e) => {
+        e.preventDefault();
+        setNumber(number + 5);
+        setNumber(number => number + 1);
+        setNumber(42);
+      }}>+6</button>
+    </>
+  )
+}
+~~~
+* 以下是 React 在执行事件处理函数时处理这几行代码的过程：
+
+    1. setNumber(number + 5)：number 为 0，所以 setNumber(0 + 5)。React 将 “替换为 5” 添加到其队列中。
+    2. setNumber(n => n + 1)：n => n + 1 是一个更新函数。React 将该函数添加到其队列中。
+    3. setNumber(42)：React 将 “替换为 42” 添加到其队列中。
+
+|更新队列| n |返回值|
+|---|---|---|
+|“替换为 5”|	0（未使用）|	5|
+|n => n + 1|	5	|5 + 1 = 6|
+|“替换为 42”|	6（未使用）|	42|
+
+#### 命名惯例
+[回到上一级](#把一系列-state-更新加入队列)
+
+1. 使用State变量的首字母
+2. 使用State变量的全称
+
+
+### 更新 state 中的对象
+[回到上一级](#添加交互)
+
+state 中可以保存任意类型的 JavaScript 值，包括**对象**。但是，你**不应该直接修改**存放在 React state 中的对象。相反，当你想要更新一个对象时，你需要**创建一个新的对象**（或者将其拷贝一份），然后将 state 更新为此对象。
+
+#### 将 state 视为只读的
+[回到上一级](#更新-state-中的对象)
+
+在下面的例子中，我们用一个存放在 state 中的对象来表示指针当前的位置。当你在预览区触摸或移动光标时，红色的点本应移动。但是实际上红点**仍停留在原处**：
+~~~tsx
+import { useState } from 'react';
+
+export default function Counter() {
+  const [position, setPosition] = useState({
+    x: 0,
+    y: 0,
+  })
+
+  return (
+    <>
+      <div 
+        onPointerMove={ e => {
+          position.x = e.clientX;
+          position.y = e.clientY;
+        }}
+        style={{
+          position: 'relative',
+          width: '100vw',
+          height: '100vh'
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            backgroundColor: 'red',
+            borderRadius: '50%',
+            transform: `translate(${position.x}px, ${position.y}px)`,
+            left: -20,
+            top: -20,
+            width: 20,
+            height: 20, // 等价20px，但在css中，这种写法是不允许的
+          }}
+        />
+      </div>
+    </>
+  )
+}
+~~~
+问题出在下面这段代码中：
+
+~~~tsx
+onPointerMove={ e => {
+  position.x = e.clientX;
+  position.y = e.clientY;
+}}
+~~~
+* 这段代码虽然将现在指针的位置赋予了position对象，但是由于并**没有使用 setter 函数**，React 并不知道position对象已经改变，因此 React **没有做出任何响应**
+
+正确方式应该是**创建一个新对象**，然后将 state 更新为新对象：
+~~~tsx
+onPointerMove={ e => {
+  setPosition({
+    x: e.clientX,
+    y: e.clientY,
+  })
+}}
+~~~
+* 通过使用 setPosition，你在告诉 React：
+    * 使用这个新的对象**替换** position 的值
+    * 然后**再次渲染**这个组件
+
+#### 使用展开语法复制对象
+[回到上一级](#更新-state-中的对象)
+
+但是通常，你会希望把 **现有** 数据作为你所创建的新对象的一部分。例如，你可能只想要更新表单中的**一个字段**，其他的字段仍然**使用之前的值**。
+
+下面的代码中，输入框并不会正常运行，因为 onChange 直接修改了 state ：
+~~~tsx
+import React, { useState } from 'react';
+
+export default function Form() {
+  const [person, setPerson] = useState({
+    firstName: 'Barbara',
+    lastName: 'Hepworth',
+    email: 'bhepworth@sculpture.com'
+  });
+
+  // 不同于jsx，tsx需要指定事件e的类型为ChangeEvent<HTMLInputElement>
+  function handleFirstNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    person.firstName = e.target.value;
+  }
+
+  function handleLastNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    person.lastName = e.target.value;
+  }
+
+  function handleEmailChange(e: React.ChangeEvent<HTMLInputElement>) {
+    person.email = e.target.value;
+  }
+
+  return (
+    <>
+      <label>
+        First name:
+        <input
+          value={person.firstName}
+          onChange={handleFirstNameChange}
+        />
+      </label>
+      <label>
+        Last name:
+        <input
+          value={person.lastName}
+          onChange={handleLastNameChange}
+        />
+      </label>
+      <label>
+        Email:
+        <input
+          value={person.email}
+          onChange={handleEmailChange}
+        />
+      </label>
+      <p>
+        {person.firstName}{' '}
+        {person.lastName}{' '}
+        ({person.email})
+      </p>
+    </>
+  );
+}
+~~~
+
+正确写法仍是创建一个新对象，然后将 state 改变为新对象：
+
+~~~tsx
+function handleFirstNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+  setPerson({
+    firstName: e.target.value,
+    lastName: person.lastName,
+    email: person.email
+  })
+}
+~~~
+
+不过，可以使用展开语法`...对象名`来简化对象的创建（或者说是**复制**），只需要重新赋值**需要更改的字段**即可：
+~~~tsx
+function handleFirstNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+  setPerson({
+    ...person,
+    firstName: e.target.value,
+  })
+}
+~~~
+* 需要注意的是，展开语法是**浅拷贝**--只会复制一层，在**嵌套属性**中，需要**多次使用**展开语法
+
+更进一步，你也可以在对象的定义中使用 `[` 和 `]` 括号来实现属性的动态命名:
+~~~tsx
+import React, { useState } from 'react';
+
+export default function Form() {
+  const [person, setPerson] = useState({
+    firstName: 'Barbara',
+    lastName: 'Hepworth',
+    email: 'bhepworth@sculpture.com'
+  });
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPerson({
+      ...person,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  return (
+    <>
+      <label>
+        First name:
+        <input
+          name='firstName'
+          value={person.firstName}
+          onChange={handleInputChange}
+        />
+      </label>
+      <label>
+        Last name:
+        <input
+          name='lastName'
+          value={person.lastName}
+          onChange={handleInputChange}
+        />
+      </label>
+      <label>
+        Email:
+        <input
+          name='email'
+          value={person.email}
+          onChange={handleInputChange}
+        />
+      </label>
+      <p>
+        {person.firstName}{' '}
+        {person.lastName}{' '}
+        ({person.email})
+      </p>
+    </>
+  );
+}
+~~~
+* `name`属性**必须**与对象属性**相同**
+* 这样，不同的输入框就能通过`name`属性区分，一个处理函数就能动态地为不同输入框的对应属性赋值
+
+#### 更新一个嵌套对象 
+[回到上一级](#更新-state-中的对象)
+
+~~~tsx
+import React, { useState } from 'react';
+
+export default function Form() {
+  const [person, setPerson] = useState({
+    name: 'Niki de Saint Phalle',
+    artwork: {
+      title: 'Blue Nana',
+      city: 'Hamburg',
+      image: 'https://i.imgur.com/Sd1AgUOm.jpg',
+    }
+  });
+
+  function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPerson({
+      ...person,
+      name: e.target.value
+    });
+  }
+
+  function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPerson({
+      ...person,
+      artwork: {
+        ...person.artwork,
+        title: e.target.value
+      }
+    });
+  }
+
+  function handleCityChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPerson({
+      ...person,
+      artwork: {
+        ...person.artwork,
+        city: e.target.value
+      }
+    });
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPerson({
+      ...person,
+      artwork: {
+        ...person.artwork,
+        image: e.target.value
+      }
+    });
+  }
+
+  return (
+    <>
+      <label>
+        Name:
+        <input
+          value={person.name}
+          onChange={handleNameChange}
+        />
+      </label>
+      <label>
+        Title:
+        <input
+          value={person.artwork.title}
+          onChange={handleTitleChange}
+        />
+      </label>
+      <label>
+        City:
+        <input
+          value={person.artwork.city}
+          onChange={handleCityChange}
+        />
+      </label>
+      <label>
+        Image:
+        <input
+          value={person.artwork.image}
+          onChange={handleImageChange}
+        />
+      </label>
+      <p>
+        <i>{person.artwork.title}</i>
+        {' by '}
+        {person.name}
+        <br />
+        (located in {person.artwork.city})
+      </p>
+      <img 
+        src={person.artwork.image} 
+        alt={person.artwork.title}
+      />
+    </>
+  );
+}
+~~~
+* 更新嵌套属性和上面的并没有很大区别，只需要在**更新嵌套属性**时，使用**多个展开语法**即可
+
+#### 使用 Immer 编写简洁的更新逻辑 
+[回到上一级](#更新-state-中的对象)
+
+由 Immer 提供的 draft 是一种**特殊类型的对象**，被称为 Proxy，它会记录你用它所进行的操作。这就是你能够随心所欲地直接修改对象的原因所在！从原理上说，Immer 会**弄清楚 draft 对象的哪些部分被改变了**，并会依照你的修改**创建出一个全新的对象**。
+
+* 尝试使用 Immer:
+
+    1. 运行 `npm install use-immer` 添加 Immer 依赖
+    2. 用 `import { useImmer } from 'use-immer'` 替换掉 `import { useState } from 'react'`
+
+下面我们把上面的例子用 Immer 实现一下：
+~~~tsx
+import { useImmer } from 'use-immer';
+
+export default function Form() {
+  const [person, updatePerson] = useImmer({
+    name: 'Niki de Saint Phalle',
+    artwork: {
+      title: 'Blue Nana',
+      city: 'Hamburg',
+      image: 'https://i.imgur.com/Sd1AgUOm.jpg',
+    }
+  });
+
+  function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    updatePerson(draft => {
+      draft.name = e.target.value;
+    });
+  }
+
+  function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    updatePerson(draft => {
+      draft.artwork.title = e.target.value;
+    });
+  }
+
+  function handleCityChange(e: React.ChangeEvent<HTMLInputElement>) {
+    updatePerson(draft => {
+      draft.artwork.city = e.target.value;
+    });
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    updatePerson(draft => {
+      draft.artwork.image = e.target.value;
+    });
+  }
+
+  return (
+    <>
+      <label>
+        Name:
+        <input
+          value={person.name}
+          onChange={handleNameChange}
+        />
+      </label>
+      <label>
+        Title:
+        <input
+          value={person.artwork.title}
+          onChange={handleTitleChange}
+        />
+      </label>
+      <label>
+        City:
+        <input
+          value={person.artwork.city}
+          onChange={handleCityChange}
+        />
+      </label>
+      <label>
+        Image:
+        <input
+          value={person.artwork.image}
+          onChange={handleImageChange}
+        />
+      </label>
+      <p>
+        <i>{person.artwork.title}</i>
+        {' by '}
+        {person.name}
+        <br />
+        (located in {person.artwork.city})
+      </p>
+      <img 
+        src={person.artwork.image} 
+        alt={person.artwork.title}
+      />
+    </>
+  );
+}
+~~~
+
+
 
 
 
