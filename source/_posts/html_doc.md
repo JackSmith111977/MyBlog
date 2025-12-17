@@ -42,7 +42,14 @@ categories:
     - [创建图片](#创建图片)
     - [宽度和高度](#宽度和高度)
     - [图像标题](#图像标题)
+    - [创建图表](#创建图表)
     - [网页上的其他图形](#网页上的其他图形)
+  - [HTML 视频和音频](#html-视频和音频)
+    - [video 元素](#video-元素)
+      - [浏览器中的媒体支持](#浏览器中的媒体支持)
+      - [其他 video 功能](#其他-video-功能)
+    - [audio 元素](#audio-元素)
+    - [显示视频文本轨道](#显示视频文本轨道)
 
 ## HTML 基本语法
 [回到目录](#目录)
@@ -475,6 +482,13 @@ para.onclick = function() {
 
 类似于超链接，你可以通过给图片增加 title 属性来提供更多的信息，这会给我们一个**鼠标悬停提示**
 
+### 创建图表
+[回到上一级](#html-中的图片)
+为图表提供一个**语义容器**，并明确将图表与标题关联起来：
+1. 将 `<img>` 元素包裹在 `<figure>` 元素中。
+2. 将 title 属性中的文本复制出来，将其放入 `<img>` 元素下方的 `<figcaption>` 元素中，然后删除 title 属性。
+
+
 ### 网页上的其他图形
 [回到上一级](#html-中的图片)
 
@@ -488,6 +502,117 @@ para.onclick = function() {
     与 `<img>` 类似，你可以使用 HTML 将 `<video>` 和 `<audio>` 嵌入到网页中，并控制其播放。
 5. **WebRTC**
     WebRTC 中的 RTC 代表实时通信（Real-Time Communications），这是一种可以在浏览器客户端（对等方）之间进行音频/视频流和数据共享的技术。
+
+## HTML 视频和音频
+[回到目录](#目录)
+
+### video 元素
+[回到上一级](#html-视频和音频)
+
+`<video>` 元素用于在 HTML 文档中嵌入视频。
+
+~~~html
+<video src="rabbit320.webm" controls>
+  <p>
+    Your browser doesn't support HTML video. Here is a
+    <a href="rabbit320.webm">link to the video</a> instead.
+  </p>
+</video>
+~~~
+* **src**：与 `<img>` 元素相同，src (源) 属性包含您要嵌入的视频的路径。它的工作方式完全相同。
+* **controls**：用户必须能够**控制视频和音频播放**，您必须使用 controls 属性包含浏览器自己的控制界面，或者使用适当的 JavaScript API 构建您的界面
+* **`<video>` 标签内的段落**：这称为**回退内容** — 如果访问该页面的浏览器不支持 `<video>` 元素，则会显示此内容，从而允许我们为旧版浏览器提供回退
+
+#### 浏览器中的媒体支持
+[回到上一级](#video-元素)
+
+~~~html
+<video controls>
+  <source src="rabbit320.mp4" type="video/mp4" />
+  <source src="rabbit320.webm" type="video/webm" />
+  <p>
+    Your browser doesn't support this video. Here is a
+    <a href="rabbit320.mp4">link to the video</a> instead.
+  </p>
+</video>
+~~~
+* 将 src 属性从实际的 `<video>` 标签中取出，转移到 `<source>` 标签中，浏览器会遍历这些标签，并播放第一个具有支持解码器的源
+* type 属性包含 **MIME 类型**由 `<source>` 指定的文件，浏览器可以使用 type 立即跳过它们不理解的视频
+
+#### 其他 video 功能
+[回到上一级](#video-元素)
+
+~~~html
+<video
+  controls
+  width="400"
+  height="400"
+  autoplay
+  loop
+  muted
+  preload="auto"
+  poster="poster.png">
+  <source src="rabbit320.mp4" type="video/mp4" />
+  <source src="rabbit320.webm" type="video/webm" />
+  <p>
+    Your browser doesn't support this video. Here is a
+    <a href="rabbit320.mp4">link to the video</a> instead.
+  </p>
+</video>
+~~~
+* **width 和 height**：您可以使用这些属性或 CSS 来**控制视频大小**。在这两种情况下，视频都会**保持其原始的宽高比** — 称为纵横比。如果宽高比未通过您设置的大小保持，视频将水平增长以填充空间，未填充的空间将默认以纯色背景色填充
+* **autoplay**：使音频或视频在页面其余部分加载时**立即开始播放**
+* **loop**：使视频（或音频）在**完成时**再次开始播放
+* **muted**：导致媒体**默认关闭声音播放**
+* **poster**：在视频播放前显示的图像的 URL，即视频封面
+* **preload**：用于缓冲大文件；它可以取三个值之一
+    * "none" 不缓冲文件
+    * "auto" 缓冲媒体文件
+    * "metadata" 仅缓冲文件的元数据
+
+### audio 元素
+[回到上一级](#html-视频和音频)
+`<audio>` 元素的工作方式与 `<video>` 元素相同，但有一些细微差别
+
+* `<audio>` 元素不支持 width/height 属性 — 再次强调，**没有视觉组件**，因此没有要指定宽度或高度的内容。
+* 它也不支持 poster 属性 — 同样，**没有视觉组件**
+
+### 显示视频文本轨道
+[回到上一级](#html-视频和音频)
+
+* **Web Video Text Tracks (WebVTT)** 是文本轨道，提供与视频或音频轨道等其他媒体同步的特定文本“提示”，要将其与 HTML 媒体播放一起显示，您需要
+    1. 将其保存为 **.vtt 文件**，放在服务器可以提供的位置（见下文），例如与 HTML 文件相同的目录中。
+    2. 使用 `<track>` 元素链接到 .vtt 文件。`<track>` 应该放置在 `<audio>` 或 `<video>` 中，但要在所有 `<source>` 元素之后。使用 kind 属性指定提示是 subtitles、captions 还是 descriptions。此外，使用 srclang 告诉浏览器您用什么语言编写的字幕。最后，添加 label 以帮助读者识别他们正在寻找的语言。
+
+~~~html
+<video controls>
+  <source src="example.mp4" type="video/mp4" />
+  <source src="example.webm" type="video/webm" />
+  <track kind="subtitles" src="subtitles_es.vtt" srclang="es" label="Spanish" />
+</video>
+~~~
+* 类型为 subtitles 字幕
+* es 为西班牙语
+* label 为西班牙语
+
+## 表格
+[回到目录](#目录)
+
+### 表格元素
+[回到上一级](#表格)
+
+* `<table>` 元素定义一个表格
+* `<tr>` 元素定义表格中的行
+* `<td>` 元素定义表格中的数据单元格
+* `<th>` 元素定义表格中的表头单元格，在表现上和 `<td>` 元素相同，具有相同的属性
+  * rowspan 属性 — 跨行数
+  * colspan 属性 — 跨列数
+
+
+
+
+
+
 
 
 

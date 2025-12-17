@@ -23,3 +23,32 @@ categories:
    * Add Miniconda3 to my PATH environment variable: 强烈建议不要勾选。勾选后可能会干扰你系统里其他的软件。官方建议使用专门的 "Anaconda Prompt" 命令行工具，而不是系统的 CMD。
    * Register Miniconda3 as my default Python 3.x: 可以勾选（如果你希望它作为主力 Python）。
    * Clear the package cache upon completion: 不勾选。
+3. 验证安装：
+
+   * 点击 Windows 开始菜单，搜索并打开 Anaconda Prompt (Miniconda3)（一个黑色的命令行窗口）。
+
+   * 输入命令：conda --version
+
+   * 如果显示版本号（如 conda 23.x.x），说明安装成功。
+
+## 二. 创建虚拟环境
+
+1. 更改默认环境路径
+
+~~~shell
+conda config --add envs_dirs <完整路径>
+~~~
+
+2. 创建虚拟环境
+
+~~~shell
+conda create -n <项目名> python=<python版本>
+~~~
+
+3. 连接到VS Code
+
+    * 安装 Python 插件
+    * 打开你的项目文件夹
+    * 创建py文件后，选择解释器: 
+      * 在vscode顶部输入栏输入`>Python: Select Interpreter` 选择你创建的虚拟环境
+      * 右下角状态栏也可以选择解释器
