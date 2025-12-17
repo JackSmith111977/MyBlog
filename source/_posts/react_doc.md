@@ -87,6 +87,10 @@ categories:
       - [使用展开语法复制对象](#使用展开语法复制对象)
       - [更新一个嵌套对象](#更新一个嵌套对象)
       - [使用 Immer 编写简洁的更新逻辑](#使用-immer-编写简洁的更新逻辑)
+    - [更新 state 中的数组](#更新-state-中的数组)
+      - [在没有 mutation 的前提下更新数组](#在没有-mutation-的前提下更新数组)
+        - [向数组中添加元素](#向数组中添加元素)
+        - [从数组中删除元素](#从数组中删除元素)
 
 ## 快速入门
 
@@ -2291,6 +2295,139 @@ export default function Form() {
 }
 ~~~
 
+### 更新 state 中的数组
+[回到上一级](#添加交互)
+
+数组是另外一种可以存储在 state 中的 JavaScript 对象，它虽然是可变的，但是却**应该被视为不可变**。同对象一样，当你想要更新存储于 state 中的数组时，你需要**创建一个新的数组**（或者创建一份已有数组的拷贝值），并使用新数组设置 state。
+
+#### 在没有 mutation 的前提下更新数组 
+[回到上一级](#更新-state-中的数组)
+
+##### 向数组中添加元素
+[回到上一级](#在没有-mutation-的前提下更新数组)
+
+在添加元素时，应该**避免使用 push() 方法【将元素插到数组结尾】和 unshift() 方法【将元素加入数组开头】**，而是应该使用**展开语法**创建一个新的数组，再用 setter 来设置 state
+
+~~~tsx
+import { useState } from "react";
+
+let nextId = 0;
+
+interface Artist {
+  id: number;
+  name: string;
+}
+export default function List(){
+  const [name, setName] = useState('');
+  const [artists, setArtists] = useState<Artist[]>([]);
+
+  return (
+    <>
+      <h1>振奋人心的艺术家：</h1>
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
+      />
+      <button onClick={() => {
+        setArtists([
+          ...artists,
+          {id: nextId++, name: name}
+        ])
+      }}>添加</button>
+      <ul>
+        {artists.map(artist => (
+          <li key={artist.id}>
+            {artist.name}
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+~~~
+* **注意**：在tsx中，数组类型的 state 需要使用泛型来定义，如 `const [artists, setArtists] = useState<Artist[]>([])`，若使用 `const [artists, setArtists] = useState([{} as Artist])` 类型欺骗，则在初始化是会存在一个**空对象**
+* 数组展开运算符还允许将新添加的元素放在**数组开头**，如：
+
+~~~tsx
+<button onClick={() => {
+  setArtists([
+    {id: nextId++, name: name},
+    ...artists,
+  ])
+}}>添加</button>
+~~~
+
+* 也可以改成 useImmer 版本的
+~~~tsx
+const [artists, updateArtists] = useImmer<Artist[]>([]);
+~~~
+* 这样就能使用 push() 方法和 unshift() 方法来添加元素了
+~~~tsx
+<button onClick={() => {
+  updateArtists(artists => {
+    artists.unshift({
+      id: nextId++,
+      name: name,
+    });
+  });
+}}>添加</button>
+~~~
+
+##### 从数组中删除元素
+[回到上一级](#在没有-mutation-的前提下更新数组)
+从数组中删除元素需要避免使用 pop() 方法，shift() 方法 ，splice() 方法
+
+从数组中删除一个元素最简单的方法就是**将它过滤出去**。换句话说，你需要生成一个不包含该元素的新数组。这可以通过 filter 方法实现，例如：
+~~~tsx
+import { useState } from "react";
+
+let nextId = 0;
+
+interface Artist {
+  id: number;
+  name: string;
+}
+export default function List() {
+  const [name, setName] = useState('');
+  const [artists, setArtists] = useState<Artist[]>([]);
+
+  // 往数组中添加元素
+  const handleAdd = () => {
+    setArtists([
+      ...artists,
+      { id: nextId++, name: name },
+    ]);
+  }
+
+  // 从数组中删除元素
+  const handleDelete = (artistId: number) => {
+    setArtists(artists.filter(artist => artist.id !== artistId));
+  }
+
+  return (
+    <>
+      <h1>振奋人心的艺术家：</h1>
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
+      />
+      <button onClick={handleAdd}>添加</button>
+      <ul>
+        {artists.map(artist => (
+          <>
+            <li key={artist.id}>
+              {artist.id}{' '}{artist.name}{' '}
+            </li>
+            <button onClick={() => handleDelete(artist.id)}>删除</button>
+          </>
+        ))}
+      </ul>
+    </>
+  )
+}
+~~~
+* 这里，`artists.filter(a => a.id !== artist.id)` 表示**创建一个新的数组，该数组由那些 `ID` 与 `artists.id` 不同的 artists 组成**
+* 需要注意的是 filter() 方法中，传入的箭头函数若用大括号包裹，则**返回值必须用 return 显式返回**，否则会返回 undefined，导致所有元素都不符合条件，都会被过滤掉；或者**去掉大括号**
 
 
 
