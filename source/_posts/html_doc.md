@@ -50,6 +50,18 @@ categories:
       - [其他 video 功能](#其他-video-功能)
     - [audio 元素](#audio-元素)
     - [显示视频文本轨道](#显示视频文本轨道)
+  - [表格](#表格)
+    - [表格元素](#表格元素)
+  - [表单](#表单)
+    - [表单元素](#表单元素)
+      - [`<form>` 元素](#form-元素)
+      - [`<input>` 元素](#input-元素)
+      - [`<label>` 元素](#label-元素)
+      - [`<button>` 元素](#button-元素)
+      - [单选按钮](#单选按钮)
+      - [复选框](#复选框)
+      - [下拉列表](#下拉列表)
+      - [多行文本输入字段](#多行文本输入字段)
 
 ## HTML 基本语法
 [回到目录](#目录)
@@ -601,15 +613,220 @@ para.onclick = function() {
 ### 表格元素
 [回到上一级](#表格)
 
-* `<table>` 元素定义一个表格
-* `<tr>` 元素定义表格中的行
-* `<td>` 元素定义表格中的数据单元格
-* `<th>` 元素定义表格中的表头单元格，在表现上和 `<td>` 元素相同，具有相同的属性
-  * rowspan 属性 — 跨行数
-  * colspan 属性 — 跨列数
+* `<table>` 元素**定义一个表格**
+* `<tr>` 元素定义**表格中的行**
+* `<td>` 元素定义表格中的**数据单元格**
+* `<th>` 元素定义表格中的**表头单元格**，在表现上和 `<td>` 元素相同，具有相同的属性
+  * rowspan 属性 — 跨**行数**
+  * colspan 属性 — 跨**列数**
+  * scope 属性 — 定义单元格**范围**
+    * row — 表示行范围，即行的标题
+    * col — 表示列范围，即列的标题
+  * id 属性 — 定义表格的**标识符**
+  * headers 属性 - 填入上级标题的id，表示从属于上级标题
+* `<caption>` 元素定义**表格的标题**
+* `<thread>` 元素定义**表格的表头**，将表头单元格包裹在内
+* `<tbody`> 元素定义**表格的主体**，将主体单元格包裹在内
+* `<tfoot>` 元素定义**表格的脚注**，将脚注单元格（比如表示总计）包裹在内
 
+下面是一个综合示例：
+~~~html
+<!-- 表格 -->
+    <table>
+        <!-- 表头部分 -->
+        <thead>
+            <tr>
+                <th></th>
+                <th></th>
+                <!-- 顶级表头 -->
+                <th id="clothes" colspan="3">Clothes</th>
+                <th id="total">Total</th>
+            </tr>
+            <tr>
+                <th></th>
+                <th></th>
+                <!-- 从属 "clothes" 的次级表头 -->
+                <th id="trousers" headers="clothes">Trousers</th>
+                <th id="skirts" headers="clothes">Skirts</th>
+                <th id="dresses" headers="clothes">Dresses</th>
+                <td></td>
+            </tr>
+        </thead>
+        <!-- 表体部分 -->
+        <tbody>
+            <tr>
+                <!-- 顶级表头 -->
+                <th id="belgium" rowspan="2">Belgium</th>
+                <!-- 从属于 "belgium" 的次级表头 -->
+                <th id="antwerp" headers="belgium">Antwerp</th>
+                <td headers="belgium antwerp clothes trousers">56</td>
+                <td headers="belgium antwerp clothes skirts">22</td>
+                <td headers="belgium antwerp clothes dresses">43</td>
+                <td headers="belgium antwerp clothes total">121</td>
+            </tr>
+            <tr>
+                <!-- 从属于 "belgium" 的次级表头 -->
+                <th id="ghent" headers="belgium">Ghent</th>
+                <td headers="belgium ghent clothes trousers">41</td>
+                <td headers="belgium ghent clothes skirts">17</td>
+                <td headers="belgium ghent clothes dresses">35</td>
+                <td headers="belgium ghent clothes total">93</td>
+            </tr>
+        </tbody>
+        <!-- 脚注部分 -->
+        <tfoot>
+            <tr>
+                <!-- 顶级表头 -->
+                <th id="total-f">Total</th>
+                <td></td>
+                <td headers="total-f clothes trousers">97</td>
+                <td headers="total-f clothes skirts">39</td>
+                <td headers="total-f clothes dresses">78</td>
+                <td headers="total-f clothes total">242</td>
+            </tr>
+        </tfoot>
+    </table>
+~~~
+效果：
+![表格](../assert/html_doc/table.png)
 
+## 表单
+[回到目录](#目录)
 
+一个基本表单包含三件事：
+
+1. 一个 `<form>` 元素，它封装了所有其他表单内容。`<form></form>` **标签内的任何表单控件都属于同一表单**，并且它们的数据在表单提交时会被包含在内。
+2. 一个或多个由 `<label>` 元素和表单控件元素（通常是 `<input>` 元素，但也有其他类型，例如 `<select>`）组成的对
+    * 表单控件元素允许用户选择或输入一些数据，这些数据将在表单提交时发送到服务器。
+    * `<label>` 元素提供了一个与表单控件相关联的标识标签，描述了应该输入到其中的数据。
+3. 一个 `<button>` 元素，用于提交表单。
+
+### 表单元素
+[回到上一级](#表单)
+
+#### `<form>` 元素
+[回到上一级](#表单元素)
+
+`<form>` 元素充当表单的**外部包装器**，将其中所有表单控件组合在一起。当 `<button>` 被按下时，所有由表单控件表示的数据都将**提交到服务器**
+
+* 两个最重要的属性如下:
+  * **action**: 包含要将提交的表单数据发送到并进行处理的页面的**路径**
+  * **method**: 指定要用于将表单数据发送到服务器的**数据传输方法**
+
+#### `<input>` 元素
+[回到上一级](#表单元素)
+
+`<input>` 元素表示输入到表单中的不同数据项
+* 基本属性如下：
+  * **type**: 指定要创建的表单控件的类型
+  * **name**: 指定数据项的名称，当表单提交时，数据以**名称/值对**的形式发送
+  * **id**: 指定一个可用于标识元素的 ID
+  * **required**: 指定在提交表单之前必须在表单元素中输入一个值
+
+#### `<label>` 元素
+[回到上一级](#表单元素)
+
+`<label>` 元素提供与表单控件相关联的标识标签，描述应输入到其中的数据
+
+* 显式表单标签：关联是通过**给表单控件一个 id 属性**，然后给 `<label>` 元素一个 for 属性，其值与控件的 id 相同来创建的。
+* 隐式表单标签：关联是通过**将表单控件放在 `<label>` 元素内**来创建的。
+
+#### `<button>` 元素
+[回到上一级](#表单元素)
+
+当 `<button>` 元素包含在 `<form>` 元素内部时，其**默认行为是提交表单**，前提是没有无效数据导致客户端表单验证阻止提交
+
+* 可以通过 `<button>` 元素的 type 属性指定其他按钮行为
+  * button: 行为需要由 JavaScript 脚本处理
+  * reset: 重置表单
+  * submit: 提交表单
+
+#### 单选按钮
+[回到上一级](#表单元素)
+
+使用 `<input type="radio">` 控件实现：
+~~~html
+<fieldset>
+  <legend>Choose hotel room type:</legend>
+  <div>
+    <input
+      type="radio"
+      id="hotelChoice1"
+      name="hotel"
+      value="economy"
+      checked />
+    <label for="hotelChoice1">Economy (+$0)</label>
+
+    <input type="radio" id="hotelChoice2" name="hotel" value="superior" />
+    <label for="hotelChoice2">Superior (+$50)</label>
+
+    <input
+      type="radio"
+      id="hotelChoice3"
+      name="hotel"
+      value="penthouse"
+      disabled />
+    <label for="hotelChoice3">Penthouse (+$150)</label>
+  </div>
+</fieldset>
+~~~
+* **每组单选按钮的 name 属性必须包含相同的值**，才能将它们作为一组关联起来。如果它们包含不同的值，它们将有效地是独立的集合，提交时具有不同的值。
+* **必须包含一个 value 属性**，其中包含每个单选按钮要提交的值。提交的值将是名称/值对，但名称始终相同，例如 hotel=economy 或 hotel=superior
+* 每个单选按钮的 `<label>` 应该**描述该特定的值选择**，而不是您选择的总体值
+* checked 属性：默认选中
+* disabled 属性：禁用，禁用后不会提交禁用组件的数据。**可以在任何表单组件中设置**，然后该组件的字段集内部所有组件都将禁用
+
+#### 复选框
+[回到上一级](#表单元素)
+
+使用 `<input type="checkbox">` 控件实现：
+~~~html
+<fieldset>
+  <legend>Choose classes to attend:</legend>
+  <div>
+    <input type="checkbox" id="yoga" name="yoga" />
+    <label for="yoga">Yoga (+$10)</label>
+
+    <input type="checkbox" id="coffee" name="coffee" />
+    <label for="coffee">Coffee roasting (+$20)</label>
+
+    <input type="checkbox" id="balloon" name="balloon" />
+    <label for="balloon">Balloon animal art (+$5)</label>
+  </div>
+</fieldset>
+~~~
+* 每个复选框都有**不同的 name 值**，并且它们通常**不给定 value 属性**
+* 提交时，如果复选框被选中，则每个值都会**以 on 值提交**——`yoga=on`、`balloon=on` 等
+
+#### 下拉列表
+[回到上一级](#表单元素)
+
+使用 `<select>` 和 `<option>` 元素实现
+~~~html
+<label for="transport">How are you getting here:</label>
+<select name="transport" id="transport">
+  <option value="">--Please choose an option--</option>
+  <option value="plane">Plane</option>
+  <option value="bike">Bike</option>
+  <option value="walk">Walk</option>
+  <option value="bus">Bus</option>
+  <option value="train">Train</option>
+  <option value="jetPack">Jet pack</option>
+</select>
+~~~
+* **`<select>` 元素包含所有不同的值选择**。在此处设置 id 属性以将控件与其标签关联，以及设置 name 属性以设置要提交的数据项的名称。
+* **数据项的每个可能值都由一个 `<option>` 元素表示**，嵌套在 `<select>` 元素内部。每个 `<option>` 元素都可以带一个 value 属性，该属性指定如果从下拉列表中选择该选项，则要提交的值。如果您不指定 value，则使用 `<option></option>` 标签内的文本作为值。
+
+#### 多行文本输入字段
+[回到上一级](#表单元素)
+多行文本输入字段使用 `<textarea>` 元素创建：
+~~~html
+<label for="comments">Any other comments:</label>
+<textarea id="comments" name="comments" rows="5" cols="33"></textarea>
+~~~
+* rows 属性指定文本区域默认的**高度行数**
+* cols 属性指定文本区域默认的**宽度列数**
+* 如果未指定，则使用的值为 cols="20" 和 rows="2"
 
 
 
