@@ -91,6 +91,12 @@ categories:
       - [在没有 mutation 的前提下更新数组](#在没有-mutation-的前提下更新数组)
         - [向数组中添加元素](#向数组中添加元素)
         - [从数组中删除元素](#从数组中删除元素)
+        - [转换数组](#转换数组)
+        - [替换数组中的元素](#替换数组中的元素)
+        - [向数组指定位置插入元素](#向数组指定位置插入元素)
+        - [翻转数组和数组排序](#翻转数组和数组排序)
+        - [更新数组内部的对象](#更新数组内部的对象)
+        - [使用 Immer 来处理数组](#使用-immer-来处理数组)
 
 ## 快速入门
 
@@ -2429,8 +2435,339 @@ export default function List() {
 * 这里，`artists.filter(a => a.id !== artist.id)` 表示**创建一个新的数组，该数组由那些 `ID` 与 `artists.id` 不同的 artists 组成**
 * 需要注意的是 filter() 方法中，传入的箭头函数若用大括号包裹，则**返回值必须用 return 显式返回**，否则会返回 undefined，导致所有元素都不符合条件，都会被过滤掉；或者**去掉大括号**
 
+##### 转换数组
+[回到上一级](#在没有-mutation-的前提下更新数组)
 
+如果你想改变数组中的某些或全部元素，你可以用 `map()` **创建一个新数组**
 
+在下面的例子中，一个数组记录了两个圆形和一个正方形的坐标。当你点击按钮时，仅有两个圆形会向下移动 50px。这是通过使用 `map()` **生成一个新数组**实现的。
+
+~~~tsx
+import { useState } from "react"
+
+let initialShapes = [
+  {id: 0, type: 'circle', x: 50, y: 100},
+  {id: 1, type: 'square', x: 150, y: 100},
+  {id: 2, type: 'circle', x: 250, y: 100},
+]
+
+export default function ShapeEditor(){
+  const [shapes, setShapes] = useState(initialShapes)
+
+  function handleClick(){
+    // 使用map方法创建新的数组
+    setShapes(shapes.map(shape => {
+      if (shape.type === 'square'){
+        return shape;
+      }else{
+        return {...shape, y: shape.y + 50}
+      }
+    }))
+  }
+
+  return (
+    <>
+      <button onClick={handleClick}>所有圆形下移</button>
+      {shapes.map(shape => (
+        <div
+          key={shape.id}
+          style={{
+            background: 'purple',
+            position: 'absolute',
+            left: shape.x,
+            top: shape.y,
+            borderRadius: shape.type === 'circle'? '50%' : '',
+            width: 20,
+            height: 20,
+          }}
+        />
+      ))}
+    </>
+  )
+}
+~~~
+* **注意**：`map()` 方法会**返回一个新数组**，而不是修改原数组。
+
+##### 替换数组中的元素
+[回到上一级](#在没有-mutation-的前提下更新数组)
+
+想要**替换数组中一个或多个元素**是非常常见的。类似 `arr[0] = 'bird'` 这样的赋值语句会直接修改原始数组，所以在这种情况下，你也应该使用 map。
+
+~~~tsx
+import { useState } from "react"
+
+let initialCounters = [
+  0, 0, 0,
+]
+
+export default function CounterList(){
+  const [counters, setCounters] = useState(initialCounters)
+
+  function handleClick(i: number){
+    setCounters(counters.map((counter, index) => {
+      if(index === i){
+        return counter + 1
+      }else{
+        return counter
+      }
+    }))
+  }
+
+  return (
+    <ul>
+      {counters.map((counter, index) => (
+        <li key={index}>
+          {counter}
+          <button onClick={() => handleClick(index)}>+1</button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+~~~
+* map() 方法中第一个参数是**数组元素**，第二个参数是**索引**
+
+##### 向数组指定位置插入元素
+[回到上一级](#在没有-mutation-的前提下更新数组)
+
+有时，你也许想向数组特定位置插入一个元素，这个位置既不在数组开头，也不在末尾。为此，你可以将**数组展开运算符** `...` 和 `slice()` 方法一起使用。
+
+slice() 方法让你从数组中切出“一片”。为了将元素插入数组，你需要先**展开原数组在插入点之前的切片**，然后**插入新元素**，最后**展开原数组中剩下的部分**。
+
+~~~tsx
+import { useState } from "react"
+
+let nextId = 3;
+
+let initialArtists = [
+  {id: 0, name: 'Martin'},
+  {id: 1, name: 'James'},
+  {id: 2, name: 'Jerry'},
+];
+
+interface Position {
+  position: number;
+}
+
+export default function List(){
+  const [name, setName] = useState('');
+  const [artists, setArtists] = useState(initialArtists);
+  const [position, setPosition] = useState(0);
+
+  function handleClick(){
+    setArtists([
+      ...artists.slice(0, position),
+      {id: nextId++, name: name},
+      ...artists.slice(position)
+    ])
+  }
+
+  return (
+    <>
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
+      />
+      <input
+        type="number"
+        value={position}
+        onChange={e => setPosition(Number(e.target.value))}
+      />
+      <button onClick={handleClick}>插入</button>
+      <ul> 
+        {artists.map(artist => (
+          <li key={artist.id}>
+            {artist.name}
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+~~~
+* `...artists.slice(0, position)` 表示**从数组开头到插入点之前的元素**
+* `...artists.slice(position)` 表示**从插入点之后的元素**
+* 注意：input 标签的输入必须经过`Number()` 转换为数字，否则和 `position` 的类型不同，会导致报错
+
+##### 翻转数组和数组排序
+[回到上一级](#在没有-mutation-的前提下更新数组)
+
+JavaScript 中的 `reverse()` 和 `sort()` 方法**会改变原数组**，所以你无法直接使用它们。
+
+然而，你可以**先拷贝**这个数组，再改变这个拷贝后的值。
+
+翻转数组的例子：
+~~~tsx
+import { useState } from "react"
+
+let initialArtists = [
+  {id: 0, name: 'Martin'},
+  {id: 2, name: 'James'},
+  {id: 1, name: 'Jerry'},
+];
+
+export default function List(){
+  const [artists, setArtists] = useState(initialArtists);
+
+  function handleClick(){
+    setArtists([...artists].reverse()) // 排序: return 小于0, 则a排前面, 否则b排前面
+  }
+
+  return (
+    <>
+      <button onClick={handleClick}>翻转</button>
+      <ul> 
+        {artists.map(artist => (
+          <li key={artist.id}>
+            {artist.name}
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+~~~
+
+数组排序的例子：
+~~~tsx
+import { useState } from "react"
+
+let initialArtists = [
+  {id: 0, name: 'Martin'},
+  {id: 2, name: 'James'},
+  {id: 1, name: 'Jerry'},
+];
+
+export default function List(){
+  const [artists, setArtists] = useState(initialArtists);
+
+  function handleClick(){
+    setArtists([...artists].sort((a,b) => b.id - a.id)) // 排序: return 小于0, 则a排前面, 否则b排前面
+  }
+
+  return (
+    <>
+      <button onClick={handleClick}>排序</button>
+      <ul> 
+        {artists.map(artist => (
+          <li key={artist.id}>
+            {artist.name}
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+~~~
+* sort() 方法进行数字排序时，传入方法参数 `(a,b) => b.id - a.id`，return 小于0, 则a排前面, 否则b排前面
+
+##### 更新数组内部的对象
+[回到上一级](#在没有-mutation-的前提下更新数组)
+
+对象并不是 *真的* 位于数组“内部”。可能他们在代码中看起来像是在数组“内部”，但其实数组中的每个对象都是**这个数组“指向”的一个存储于其它位置的值**。这就是当你在处理类似 `list[0]` 这样的嵌套字段时需要格外小心的原因。其他人的艺术品清单**可能指向了数组的同一个元素**！
+
+在下面的例子中，两个不同的艺术品清单有着相同的初始 state。他们**本应该互不影响**，但是因为一次 mutation，他们的 state 被**意外地共享**了，勾选一个清单中的事项会影响另外一个清单：
+~~~tsx
+import { useState } from "react";
+
+let nextId = 3;
+const initialList = [
+  {id: 0, title: 'Learn React', seen: false},
+  {id: 1, title: 'Apply for jobs', seen: true},
+  {id: 2, title: 'Profit!', seen: false},
+]
+
+export default function BucketList() {
+  const [myList, setMyList] = useState(initialList);
+  const [yourList, setYourList] = useState(initialList);
+
+  function handleToggleMyList(artworkId: number, nextSeen: boolean){
+    const myNextList = [...myList];
+    const artwork = myNextList.find(a => a.id === artworkId);
+    if(artwork) artwork.seen = nextSeen;
+    setMyList(myNextList);
+  }
+
+  function handleToggleYourList(artworkId: number, nextSeen: boolean){
+    const yourNextList = [...yourList];
+    const artwork = yourNextList.find(a => a.id === artworkId);
+    if(artwork) artwork.seen = nextSeen;
+    setYourList(yourNextList);
+  }
+
+  return(
+    <>
+      <h1>想看的艺术品清单</h1>
+      <h2>我想看的</h2>
+      <ItemList
+        artworks={myList}
+        onToggle={handleToggleMyList}
+      />
+      <h2>你想看的</h2>
+      <ItemList
+        artworks={yourList}
+        onToggle={handleToggleYourList}
+      />
+    </>
+  )
+}
+
+interface ItemListProps {
+  artworks: {id: number, title: string, seen: boolean}[];
+  onToggle(artworkId: number, nextSeen: boolean): void;
+}
+
+function ItemList({artworks, onToggle}: ItemListProps){
+  return(
+    <ul>
+      {artworks.map(artwork => (
+        <li key={artwork.id}>
+          <label>
+            <input
+              type="checkbox"
+              checked={artwork.seen}
+              onChange={e => {
+                onToggle(artwork.id, e.target.checked);
+              }}
+            />
+            {artwork.title}
+          </label>
+        </li>
+      ))}
+    </ul>
+  )
+}
+~~~
+问题出现在这里：
+~~~tsx
+const myNextList = [...myList];
+const artwork = myNextList.find(a => a.id === artworkId);
+if(artwork) artwork.seen = nextSeen;
+setMyList(myNextList);
+~~~
+* 虽然 myNextList 这个数组是新的，但是其**内部的元素本身**与原数组 myList 是相同的。
+* 因此，修改 artwork.seen，其实是在**修改原始的 artwork 对象**
+
+你可以使用 `map` 在没有 mutation 的前提下**将一个旧的元素替换成更新的版本**：
+~~~tsx
+const myNextList = myList.map(artwork => {
+  if (artwork.id === artworkId){
+    return {...artwork, seen: nextSeen}
+  }else{
+    return artwork;
+  }
+})
+setMyList(myNextList);
+~~~
+
+##### 使用 Immer 来处理数组
+[回到上一级](#在没有-mutation-的前提下更新数组)
+
+如果你不想改变 state 的数据结构，你也许会更喜欢使用 Immer ，它让你可以继续使用方便的，但会直接修改原值的语法，并负责**为你生成拷贝值**。
+
+当使用 Immer 时，类似 `artwork.seen = nextSeen` 这种会产生 mutation 的语法**不会再有任何问题**了。
+
+这是因为你并不是在直接修改原始的 state，而是在修改 Immer 提供的一个**特殊的 draft 对象**，在幕后，Immer 总是会根据你对 draft 的修改来**从头开始构建下一个 state**
 
 
 
