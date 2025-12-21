@@ -16,6 +16,11 @@ categories:
   - [盒子模型](#盒子模型)
     - [盒子大小](#盒子大小)
   - [选择器](#选择器)
+    - [常见场景](#常见场景)
+      - [链接样式](#链接样式)
+      - [选择第一个子元素](#选择第一个子元素)
+      - [选择段落中的第一行和第一个字](#选择段落中的第一行和第一个字)
+      - [隔行选择](#隔行选择)
 
 
 ## 盒子模型
@@ -61,5 +66,127 @@ categories:
 | 子代组合元 | 选择A内部所有**直接**的B元素 | `A>B` 用>分隔 |
 | 相邻兄弟组合元 | 选中**紧接**在 A 元素后面的**第一个** B 元素。两者必须拥有**同一个父元素**。 | `A+B` 用+分隔 |
 | 通用兄弟组合元 | 选中 A 元素后面的**所有** B 元素。两者必须拥有**同一个父元素**，但不需要紧挨着。 | `A~B` 用~分隔 |
+| 交集选择器 | 选择同时满足多个选择器的元素 | `元素1元素2` **紧挨着**不用空格隔开 |
+
+### 常见场景
+[回到上一级](#选择器)
+
+#### 链接样式
+[回到上一级](#常见场景)
+
+1. 点击前
+~~~css
+a:link {
+  color: blue;
+}
+~~~
+
+2. 点击后
+~~~css
+a:visited {
+  color: green;
+}
+~~~
+
+3. 鼠标悬停
+~~~css
+a:hover {
+  color: yellow;
+  text-decoration: underline;
+  cursor: pointer;
+}
+~~~
+* `text-decoration: underline;` 添加下划线
+* `cursor: pointer;` 鼠标样式为小手
+
+4. 鼠标点击瞬间
+~~~css
+a:active {
+  color: red;
+}
+~~~
+
+#### 选择第一个子元素
+[回到上一级](#常见场景)
+
+1. 选择父元素下**某种类型的第一个子元素**
+   * **严格匹配**：只有这个子元素是父元素下的第一个子元素才生效
+   ~~~css
+   父元素 > 子元素:first-child {
+     属性: 值;
+   }
+   ~~~
+   * **灵活匹配**：只要这个子元素是父元素下同类型的第一个元素，就生效
+   ~~~css
+   父元素 > 子元素:first-of-type {
+     属性: 值;
+   }
+   ~~~
+
+2. 选择父元素下**不论类型的第一个子元素**
+
+~~~css
+父元素 > :first-child {
+  属性: 值;
+}
+~~~
+
+#### 选择段落中的第一行和第一个字
+[回到上一级](#常见场景)
+
+1. 选择段落中的第一行
+
+~~~css
+p::first-line {
+  font-weight: bold;
+  text-transform: uppercase;
+}
+~~~
+* `font-weight: bold;` 加粗
+* `text-transform: uppercase;` 英文变大写
+
+2. 选择段落中的第一个字
+~~~css
+p::first-letter {
+  font-size: 3em;
+  float: left;
+  line-height: 1;
+  padding-right: 10px;
+}
+~~~
+* 这是**首字下沉**的常用技巧，主要用于文章等编写的场景
+
+#### 隔行选择
+[回到上一级](#常见场景)
+
+使用伪类选择器`:nth-child([(xn+y)/odd/even])`
+* x表示**隔行数**
+* y表示**开始行数**，若y为0，则表示从第x行开始
+* odd表示**奇数行**
+* even表示**偶数行**
+
+表格斑马纹的实现：
+~~~css
+/* 斑马纹 */
+tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* 鼠标悬停高亮 (覆盖上面的颜色) */
+tbody tr:hover {
+  background-color: #e6f7ff; /* 浅蓝色高亮 */
+  cursor: default;
+}
+~~~
+
+特别的，`nth-chile()`还可以实现交集选择
+
+~~~css
+/* 必须大于等于3 (n+3) 且 必须小于等于6 (-n+6) */
+tr:nth-child(n + 3):nth-child(-n + 6) {
+  background-color: yellow;
+}
+~~~
+
 
 
