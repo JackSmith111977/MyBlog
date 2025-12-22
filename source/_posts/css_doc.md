@@ -15,6 +15,14 @@ categories:
   - [目录](#目录)
   - [盒子模型](#盒子模型)
     - [盒子大小](#盒子大小)
+    - [外部显示类型](#外部显示类型)
+      - [区块盒子](#区块盒子)
+      - [行内盒子](#行内盒子)
+    - [外边距、内边距和边框](#外边距内边距和边框)
+      - [外边距](#外边距)
+      - [边框](#边框)
+      - [内边距](#内边距)
+    - [使用 diplay: inline-block](#使用-diplay-inline-block)
   - [选择器](#选择器)
     - [常见场景](#常见场景)
       - [链接样式](#链接样式)
@@ -48,6 +56,105 @@ categories:
 ~~~
 * 此 CSS 规则会选择文档中的**每个元素**以及每个 ::before 和 ::after 伪元素，并应用 box-sizing: border-box。这意味着，现在每个元素都使用此替代盒模型
 * 由于替代框模型的可预测性更高，因此开发者通常会将此规则添加到**重置和规范化器**中
+
+### 外部显示类型
+[回到上一级](#盒子模型)
+
+#### 区块盒子
+[回到上一级](#外部显示类型)
+* 通过 `display: block;` 设置区块盒子
+* 一个拥有 **block 外部显示类型**的盒子会表现出以下行为：
+
+    * 盒子会产生换行。
+    * width 和 height 属性可以发挥作用。
+    * 内边距、外边距和边框会将其他元素从当前盒子周围“推开”。
+    * 如果未指定 width，方框将沿行向扩展，以填充其容器中的可用空间。在大多数情况下，盒子会变得与其容器一样宽，占据可用空间的 100%。
+
+#### 行内盒子
+[回到上一级](#外部显示类型)
+* 通过 `display: inline;` 设置行内盒子
+* 一个拥有 inline 外部显示类型的盒子会表现出以下行为：
+    * 盒子不会产生换行。
+    * width 和 height 属性将不起作用。
+    * 垂直方向的内边距、外边距以及边框会被应用但是不会把其他处于 inline 状态的盒子推开。
+    * 水平方向的内边距、外边距以及边框会被应用且会把其他处于 inline 状态的盒子推开。
+
+### 外边距、内边距和边框
+[回到上一级](#盒子模型)
+
+#### 外边距
+[回到上一级](#外边距内边距和边框)
+
+* 通过 `margin` 属性来设置**各个边的外边距**
+~~~css
+/* 应用于所有边 */
+margin: 1em;
+margin: -3px; /* 负值：表现为收缩 */
+
+/* 上边下边 | 左边右边 */
+margin: 5% auto;
+
+/* 上边 | 左边右边 | 下边 */
+margin: 1em auto 2em;
+
+/* 上边 | 右边 | 下边 | 左边 (从上开始顺时针顺序)*/
+margin: 2px 1em 0 auto;
+~~~
+* 通过 `margin-top` 、 `margin-right` 、 `margin-bottom` 、 `margin-left` 来设置**对应边的外边距**
+* 外边距存在**折叠现象**，根据相接触的两个元素是正边距还是负边距，效果会有所不同
+  * 两个正边距折叠成一个**值为两个值中最大的正边距**【a=10px, b=20px 》20px】
+  * 两个负边距折叠成一个**绝对值为两个值中最大的负边距**【a=-10px, b=-20px 》-20px】
+  * 一正一负取**两值相加的边距值**，正负取决于这两个值的绝对值大小【a=10px, b=-20px 》-10px】
+
+#### 边框
+[回到上一级](#外边距内边距和边框)
+
+* 可以使用 `border` 属性一次性设置**所有四个边框的宽度、颜色和样式**，可以使用下面列出的一个，两个或三个值来指定 border 属性，**值的顺序无关紧要**。
+~~~css
+/* style */
+border: solid;
+
+/* width | style */
+border: 2px dotted;
+
+/* style | color */
+border: outset #f33;
+
+/* width | style | color */
+border: medium dashed green;
+~~~
+* 可以使用 `border-top` 、 `border-right` 、 `border-bottom` 、 `border-left` 来设置**对应边框的宽度、颜色和样式**
+* 可以使用 `border-width` 、 `border-style` 、 `border-color` 来设置**所有边框对应的属性**
+* 可以使用 `border-top-width`, `border-top-style`, `border-top-color`, `border-right-width`, `border-right-style`, `border-right-color`, `border-bottom-width`, `border-bottom-style`, `border-bottom-color`, `border-left-width`, `border-left-style`, `border-left-color` 来设置**对应边框对应的属性**
+
+#### 内边距
+[回到上一级](#外边距内边距和边框)
+* 通过 `padding` 属性来设置**各个边内边距**
+~~~css
+/* 应用于所有边 */
+padding: 1em;
+
+/* 上边下边 | 左边右边 */
+padding: 5% 10%;
+
+/* 上边 | 左边右边 | 下边 */
+padding: 1em 2em 2em;
+
+/* 上边 | 右边 | 下边 | 左边 */
+padding: 5px 1em 0 2em;
+~~~
+* 通过 `padding-top` 、 `padding-right` 、 `padding-bottom` 、 `padding-left` 来设置**对应边内边距**
+
+### 使用 diplay: inline-block
+[回到上一级](#盒子模型)
+`display: inline-block` 是 display 的一个特殊值，它提供了**介于 inline 和 block 之间的中间位置**
+一个元素使用 display: inline-block，实现我们需要的块级的部分效果：
+
+* 设置 width 和height 属性会生效。
+* padding、margin 和 border 会推开其他元素。
+* 它**不会换行**
+
+
 
 ## 选择器
 [回到目录](#目录)
