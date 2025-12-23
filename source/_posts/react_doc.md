@@ -97,6 +97,15 @@ categories:
         - [翻转数组和数组排序](#翻转数组和数组排序)
         - [更新数组内部的对象](#更新数组内部的对象)
         - [使用 Immer 来处理数组](#使用-immer-来处理数组)
+  - [状态管理](#状态管理)
+    - [用 State 响应输入](#用-state-响应输入)
+      - [声明式 UI 与命令式 UI 的比较](#声明式-ui-与命令式-ui-的比较)
+      - [声明式地考虑 UI](#声明式地考虑-ui)
+        - [步骤一：定位组件中不同的视图状态](#步骤一定位组件中不同的视图状态)
+        - [步骤二：确定是什么触发了这些状态的改变](#步骤二确定是什么触发了这些状态的改变)
+        - [步骤三：通过 useState 表示内存中的 state](#步骤三通过-usestate-表示内存中的-state)
+        - [步骤四：删除任何不必要的 state 变量](#步骤四删除任何不必要的-state-变量)
+        - [步骤五：连接事件处理函数以设置 state](#步骤五连接事件处理函数以设置-state)
 
 ## 快速入门
 
@@ -2768,6 +2777,209 @@ setMyList(myNextList);
 当使用 Immer 时，类似 `artwork.seen = nextSeen` 这种会产生 mutation 的语法**不会再有任何问题**了。
 
 这是因为你并不是在直接修改原始的 state，而是在修改 Immer 提供的一个**特殊的 draft 对象**，在幕后，Immer 总是会根据你对 draft 的修改来**从头开始构建下一个 state**
+
+## 状态管理
+[回到目录](#目录)
+
+### 用 State 响应输入
+[回到上一级](#状态管理)
+
+#### 声明式 UI 与命令式 UI 的比较 
+[回到上一级](#用-state-响应输入)
+
+告诉计算机如何去更新 UI 的编程方式被称为**命令式编程**
+* 当你开发一个让用户提交答案的表单时，**命令式编程**的逻辑会如下：
+  * 当你向表单输入数据时，“提交”按钮会随之变成**可用状态**
+  * 当你点击“提交”后，表单和提交按钮都会随之变成**不可用状态**，并且会加载动画会随之**出现**
+  * 如果网络请求成功，表单会随之**隐藏**，同时“提交成功”的信息会随之**出现**
+  * 如果网络请求失败，错误信息会随之**出现**，同时表单又变为**可用状态**
+
+声明你想要显示的内容，计算机通过计算得出该如何去更新 UI，这种方式被称为**声明式 UI**
+
+#### 声明式地考虑 UI
+[回到上一级](#用-state-响应输入)
+
+React 是声明式的，使用声明式的思想实现上述逻辑：
+
+1. **定位**你的组件中不同的视图状态
+2. **确定**是什么触发了这些 state 的改变
+3. **表示**内存中的 state（需要使用 useState）
+4. **删除**任何不必要的 state 变量
+5. **连接**事件处理函数去设置 state
+
+##### 步骤一：定位组件中不同的视图状态
+[回到上一级](#声明式地考虑-ui)
+
+首先，你需要去可视化 UI 界面中用户**可能看到的所有不同的“状态”**：
+* **无数据**：表单有一个不可用状态的“提交”按钮。
+* **输入中**：表单有一个可用状态的“提交”按钮。
+* **提交中**：表单完全处于不可用状态，加载动画出现。
+* **成功时**：显示“成功”的消息而非表单。
+* **错误时**：与输入状态类似，但会多错误的消息。
+
+~~~tsx
+export default function form({ status }: any) {
+    if (status === 'success') {
+        return (
+            <h1>That's right!</h1>
+        )
+    }
+
+    return (
+        <>
+            <h1>猜猜看呐！</h1>
+            <p>随便猜吧</p>
+            <form>
+                <textarea disabled={status === 'submitting'} />
+                <button disabled={status === 'submitting' || status === 'empty'}>我猜！</button>
+            </form>
+            {status === 'error' && (
+                <p>很好的答案，可惜错了</p>
+            )}
+        </>
+    )
+}
+~~~
+
+你也可以使用 map 方法将这个表单的所有状态展示出来：
+~~~tsx
+import { useState } from "react"
+import Form from "./Form"
+
+function App() {
+  const [status, setStatus] = useState([
+    'empty',
+    'typing',
+    'submitting',
+    'success',
+    'error'
+  ])
+
+  return (
+    <>
+      {status.map(s => (
+        <section key={s} style={{border:'1px black solid'}}>
+          <p>状态：{s}</p>
+          <Form 
+            status={s} 
+          />
+        </section>
+      ))}
+    </>
+  )
+  
+}
+export default App
+~~~
+* 类似这样的页面通常被称作 **“living styleguide”** 或 **“storybook”** 
+
+##### 步骤二：确定是什么触发了这些状态的改变
+[回到上一级](#声明式地考虑-ui)
+你可以触发 state 的更新来响应两种输入：
+* **人为输入**。比如点击按钮、在表单中输入内容，或导航到链接。
+* **计算机输入**。比如网络请求得到反馈、定时器被触发，或加载一张图片。
+
+以上两种情况中，**你必须设置 state 变量** 去更新 UI。对于正在开发中的表单来说，你需要改变 state 以响应几个不同的输入：
+* **改变输入框中的文本时**（人为）应该根据输入框的内容是否是**空值**，从而决定将表单的状态从空值状态切换到输入中或切换回原状态。
+* **点击提交按钮时**（人为）应该将表单的状态切换到**提交中**的状态。
+* **网络请求成功后**（计算机）应该将表单的状态切换到**成功**的状态。
+* **网络请求失败后**（计算机）应该将表单的状态切换到**失败**的状态，与此同时，显示错误信息。
+
+##### 步骤三：通过 useState 表示内存中的 state 
+[回到上一级](#声明式地考虑-ui)
+state 的每个部分都是“处于变化中的”，并且**你需要让“变化的部分”尽可能的少**
+
+* 先从**绝对必须存在**的状态开始
+* 接下来，你需要一个状态变量来代表你想要显示的那个可视状态
+* 如果你很难立即想出最好的办法，那就先**从添加足够多的 state 开始**，确保所有可能的视图状态都囊括其中
+
+##### 步骤四：删除任何不必要的 state 变量
+[回到上一级](#声明式地考虑-ui)
+你的目的是防止出现在**内存中的 state 不代表任何你希望用户看到的有效 UI 的情况**
+这有一些你可以问自己的， 关于 state 变量的问题：
+* 这个 state 是否会导致矛盾？
+* 相同的信息是否已经在另一个 state 变量中存在
+* 你是否可以通过另一个 state 变量的相反值得到相同的信息？
+
+##### 步骤五：连接事件处理函数以设置 state
+[回到上一级](#声明式地考虑-ui)
+最后，创建事件处理函数去设置 state 变量。
+~~~tsx
+import { useState } from "react"
+
+export default function form() {
+    const [status, setStatus] = useState('empty'); // typing || submitting || error || success
+    const [answer, setAnswer] = useState('');
+    const [error, setError] = useState<Error | null>(null);
+
+    if (status === 'success') {
+        return (
+            <h1>That's right!</h1>
+        )
+    }
+
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>){
+        e.preventDefault();
+        setStatus('submitting');
+        try{
+            await submitForm(answer);
+            setStatus('success');
+        }catch(error){
+            setStatus('typing');
+            setError(error as Error);
+        }
+    }
+
+    return (
+        <>
+            <h1>猜猜看呐！</h1>
+            <p>随便猜吧</p>
+            <form onSubmit={handleSubmit}>
+                <textarea 
+                    value={answer}
+                    disabled={status === 'submitting'} 
+                    onChange={e => {
+                        setAnswer(e.target.value);
+                        if(e.target.value.length > 0){
+                            setStatus('typing');
+                        }else{
+                            setStatus('empty');
+                        }
+                    }}
+                />
+                <button disabled={status === 'submitting' || status === 'empty'}>我猜！</button>
+            </form>
+            {error !== null && (
+                <p>{error.message}</p>
+            )}
+        </>
+    )
+}
+
+function submitForm(answer: string){
+    return new Promise<void>((resolve, reject) => {
+        setTimeout(() => {
+            let shouldError = answer.trim().toLowerCase() !== '42';
+            if (shouldError){
+                reject(new Error('你猜的很好，但是不对捏😝'))
+            }else{
+                resolve()
+            }
+        }, 1500)
+    })
+}
+~~~
+* setTimeout 模拟网络请求
+* 若请求成功且不需要返回数据，Promise对象需要**使用 void 泛型**
+* 容易忽略的是在**改变输入时**需要检查输入字符串的长度并**调整 status 变量**，使按钮能够启用
+
+
+
+
+
+
+
+
 
 
 
