@@ -106,6 +106,13 @@ categories:
         - [步骤三：通过 useState 表示内存中的 state](#步骤三通过-usestate-表示内存中的-state)
         - [步骤四：删除任何不必要的 state 变量](#步骤四删除任何不必要的-state-变量)
         - [步骤五：连接事件处理函数以设置 state](#步骤五连接事件处理函数以设置-state)
+    - [选择 State 结构](#选择-state-结构)
+      - [构建 State 的原则](#构建-state-的原则)
+      - [一、合并关联的 state](#一合并关联的-state)
+      - [二、避免互相矛盾的 state](#二避免互相矛盾的-state)
+      - [三、避免冗余的 state](#三避免冗余的-state)
+      - [四、避免重复的 state](#四避免重复的-state)
+      - [五、避免深度嵌套的 state](#五避免深度嵌套的-state)
 
 ## 快速入门
 
@@ -2972,6 +2979,316 @@ function submitForm(answer: string){
 * setTimeout 模拟网络请求
 * 若请求成功且不需要返回数据，Promise对象需要**使用 void 泛型**
 * 容易忽略的是在**改变输入时**需要检查输入字符串的长度并**调整 status 变量**，使按钮能够启用
+
+### 选择 State 结构
+[回到上一级](#状态管理)
+
+> 构建良好的 state 可以让组件变得易于修改和调试，而不会经常出错。
+
+#### 构建 State 的原则
+[回到上一级](#选择-state-结构)
+
+当你编写一个存有 state 的组件时，你需要选择使用多少个 state 变量以及它们都是怎样的数据格式。尽管选择次优的 state 结构下也可以编写正确的程序，但有几个原则可以指导你做出更好的决策：
+1. **合并关联的 state**。如果你总是同时更新两个或更多的 state 变量，请考虑将它们合并为一个单独的 state 变量。
+2. **避免互相矛盾的 state**。当 state 结构中存在多个相互矛盾或“不一致”的 state 时，你就可能为此会留下隐患。应尽量避免这种情况。
+3. **避免冗余的 state**。如果你能在渲染期间从组件的 props 或其现有的 state 变量中计算出一些信息，则不应将这些信息放入该组件的 state 中。
+4. **避免重复的 state**。当同一数据在多个 state 变量之间或在多个嵌套对象中重复时，这会很难保持它们同步。应尽可能减少重复。
+5. **避免深度嵌套的 state**。深度分层的 state 更新起来不是很方便。如果可能的话，最好以扁平化方式构建 state。
+
+#### 一、合并关联的 state
+[回到上一级](#选择-state-结构)
+
+类似这样的 state ：
+~~~tsx
+const [x, setX] = useState(0);
+const [y, setY] = useState(0);
+~~~
+如果某两个 state 变量总是一起变化，则将它们统一成一个 state 变量可能更好：
+~~~tsx
+const [position, setPosition] = useState({x: 0, y: 0});
+~~~
+这样你就**不会忘记让它们始终保持同步**，就像下面这个例子中，移动光标会同时更新红点的两个坐标:
+~~~tsx
+import { useState } from "react";
+
+export default function MovingDot() {
+    const [position, setPosition] = useState({
+        x: 0,
+        y: 0
+    });
+
+    return (
+        <div
+            onMouseMove={e => {
+                setPosition({
+                    x: e.clientX,
+                    y: e.clientY
+                });
+            }}
+            style={{
+                height: "100vh",
+                width: "100vw"
+            }}
+        >
+            <div
+                style={{
+                    height: "50px",
+                    width: "50px",
+                    background: "#ff0000",
+                    borderRadius: "50%",
+                    transform: `translate(${position.x}px, ${position.y}px)`,
+                    position: "absolute",
+                    left: -25,
+                    top: -25
+                }}
+            />
+        </div>
+    )
+}
+~~~
+* 如果只想改变其中一个坐标，**请不要忘记使用展开语法复制剩余的坐标**
+
+#### 二、避免互相矛盾的 state
+[回到上一级](#选择-state-结构)
+
+下面是带有 isSending 和 isSent 两个 state 变量的酒店反馈表单：
+~~~tsx
+import { useState } from "react";
+
+export default function FeedbackForm(){
+    const [text, setText] = useState('');
+    const [isSending, setIsSending] = useState(false);
+    const [isSent, setIsSent] = useState(false);
+
+    if (isSent) {
+        return <h1>中!</h1>
+    }
+
+    return (
+        <form>
+            <h1>你想反馈啥？</h1>
+            <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+            />
+            <button
+                disabled={isSending}
+                onClick={async e => {
+                    e.preventDefault();
+                    setIsSending(true);
+                    await submit(text);
+                    setIsSending(false);
+                    setIsSent(true);
+                }}
+            >发送</button>
+            {isSending && <span>正在发送...</span>}
+        </form>
+    )
+}
+
+function submit(text: string){
+    return new Promise<void>(resolve => {
+        setTimeout(() => resolve(), 2000);
+    })
+}
+~~~
+* 尽管这段代码是有效的，但也会让一些 state “极难处理”。
+* 例如，如果你忘记同时调用 setIsSent 和 setIsSending，则可能会出现 isSending 和 isSent 同时为 true 的情况。
+* 因为 isSending 和 isSent 不应同时为 true，所以**最好用一个 status 变量来代替它们**，这个 state 变量可以采取三种有效状态其中之一：'typing' (初始), 'sending', 和 'sent':
+~~~tsx
+import { useState } from "react";
+
+export default function FeedbackForm(){
+    const [text, setText] = useState('');
+    // const [isSending, setIsSending] = useState(false);
+    // const [isSent, setIsSent] = useState(false);
+    const [status, setStatus] = useState<'typing' | 'sending' | 'sent'>('typing');
+
+    if (status === 'sent') {
+        return <h1>中!</h1>
+    }
+
+    return (
+        <form>
+            <h1>你想反馈啥？</h1>
+            <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+            />
+            <button
+                disabled={status === 'sending'}
+                onClick={async e => {
+                    e.preventDefault();
+                    setStatus('sending');
+                    await submit(text);
+                    setStatus('sent');
+                }}
+            >发送</button>
+            {status === 'sending' && <span>正在发送...</span>}
+        </form>
+    )
+}
+
+function submit(text: string){
+    return new Promise<void>(resolve => {
+        setTimeout(() => resolve(), 2000);
+    })
+}
+~~~
+
+#### 三、避免冗余的 state
+[回到上一级](#选择-state-结构)
+如果你能在渲染期间从组件的 props 或其现有的 state 变量中计算出一些信息，则不应该把这些信息放到该组件的 state 中。
+~~~tsx
+const [firstName, setFirstName] = useState('');
+const [lastName, setLastName] = useState('');
+const [fullName, setFullName] = useState('');
+~~~
+* 例如，fullName 可以通过 firstName 和 lastName 计算得出
+~~~tsx
+const [firstName, setFirstName] = useState('');
+const [lastName, setLastName] = useState('');
+const fullName = firstName + ' ' + lastName;
+~~~
+* 因此，更改处理程序不需要做任何特殊操作来更新它。
+* 当你调用 setFirstName 或 setLastName 时，你会**触发一次重新渲染**，然后下一个 fullName 将从新数据中计算出来。
+
+另一个常见的冗余 state 场景是**在 state 中镜像 props**：
+~~~tsx
+function Message({ messageColor }) {
+  const [color, setColor] = useState(messageColor);
+}
+~~~
+* 如果父组件稍后传递不同的 messageColor 值（例如，将其从 'blue' 更改为 'red'），**则 color state 变量将不会更新！** 
+* state 仅在第一次渲染期间初始化。
+* 相反，你要在代码中**直接使用 messageColor 属性**。
+* 如果你想给它起一个更短的名称，请使用常量：
+~~~tsx
+function Message({ messageColor }) {
+  const color = messageColor;
+}
+~~~
+* 这种写法就**不会与从父组件传递的属性失去同步**。
+
+只有当你 **想要忽略特定 props 属性的所有更新时**，将 props “镜像”到 state 才有意义。按照惯例，prop 名称**以 initial 或 default 开头**，以阐明该 prop 的新值将被忽略：
+~~~tsx
+function Message({ initialColor }) {
+  // 这个 `color` state 变量用于保存 `initialColor` 的 **初始值**。
+  // 对于 `initialColor` 属性的进一步更改将被忽略。
+  const [color, setColor] = useState(initialColor);
+}
+~~~
+
+#### 四、避免重复的 state
+[回到上一级](#选择-state-结构)
+
+下面这个菜单列表组件可以让你在多种旅行小吃中选择一个：
+~~~tsx
+import { useState } from "react";
+
+export default function Menu() {
+    const [items, setItems] = useState([
+        { id: 0, name: 'Burger' },
+        { id: 1, name: 'Pizza' },
+        { id: 2, name: 'Salad' },
+    ]);
+    const [selectedItem, setSelectedItem] = useState(items[0]);
+
+    return (
+        <>
+            <h1>你要吃啥</h1>
+            <ul>
+                {items.map(item => (
+                    <li key={item.id}>
+                        <input
+                            value={item.name}
+                            onChange={e => {
+                                e.preventDefault();
+                                setItems(items.map(i => {
+                                    if (i.id === item.id) {
+                                        return { ...i, name: e.target.value };
+                                    } else {
+                                        return i;
+                                    }
+                                }))
+                            }}
+                        />
+                        <button
+                            onClick={() => {
+                                setSelectedItem(item)
+                            }}
+                        >
+                            选择
+                        </button>
+                    </li>
+                ))}
+            </ul>
+            <p>你选的是：{selectedItem.name}</p>
+        </>
+    )
+}
+~~~
+* 当前，它将所选元素**作为对象**存储在 selectedItem state 变量中。
+* 然而，这并不好：selectedItem 的内容与 items 列表中的某个项**是同一个对象**。 
+* 这意味着关于该项本身的信息在两个地方**产生了重复**。
+* 如果你首先单击菜单上的“Choose” 然后 编辑它，输入会更新，但**底部的标签不会反映编辑内容**。 这是因为**你有重复的 state**，并且你忘记更新了 selectedItem
+* 尽管你也可以更新 selectedItem，但更简单的解决方法是**消除重复项**：
+~~~tsx
+import { useState } from "react";
+
+export default function Menu() {
+    const [items, setItems] = useState([
+        { id: 0, name: 'Burger' },
+        { id: 1, name: 'Pizza' },
+        { id: 2, name: 'Salad' },
+    ]);
+    const [selectedId, setSelectedId] = useState(0);
+
+    const selectedItem = items.find(item => item.id === selectedId);
+
+    return (
+        <>
+            <h1>你要吃啥</h1>
+            <ul>
+                {items.map(item => (
+                    <li key={item.id}>
+                        <input
+                            value={item.name}
+                            onChange={e => {
+                                e.preventDefault();
+                                setItems(items.map(i => {
+                                    if (i.id === item.id) {
+                                        return { ...i, name: e.target.value };
+                                    } else {
+                                        return i;
+                                    }
+                                }))
+                            }}
+                        />
+                        <button
+                            onClick={() => {
+                                setSelectedId(item.id)
+                            }}
+                        >
+                            选择
+                        </button>
+                    </li>
+                ))}
+            </ul>
+            <p>你选的是：{selectedItem?.name}</p>
+        </>
+    )
+}
+~~~
+* 现在，如果你编辑 selected 元素，下面的消息将**立即更新**
+* 这是因为 setItems 会触发重新渲染，而 items.find(...) 会找到带有更新文本的元素
+* 你不需要在 state 中保存 **选定的元素**，因为只有 **选定的 ID** 是必要的。其余的可以在渲染期间计算。
+
+#### 五、避免深度嵌套的 state
+[回到上一级](#选择-state-结构)
+
+
+
 
 
 
