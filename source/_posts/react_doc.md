@@ -3287,8 +3287,283 @@ export default function Menu() {
 #### 五、避免深度嵌套的 state
 [回到上一级](#选择-state-结构)
 
+想象一下，一个由**行星、大陆和国家**组成的旅行计划。你可能会尝试使用嵌套对象和数组来构建它的 state，就像下面这个例子：
+~~~tsx
+export const initialTravelPlan = {
+  id: 0,
+  title: '(Root)',
+  childPlaces: [
+    {
+      id: 1,
+      title: '地球',
+      childPlaces: [
+        {
+          id: 2,
+          title: '亚洲',
+          childPlaces: [
+            { id: 3, title: '中国', childPlaces: [] },
+            { id: 4, title: '新加坡', childPlaces: [] },
+          ]
+        },
+        {
+          id: 5,
+          title: '欧洲',
+          childPlaces: [
+            { id: 6, title: '法国', childPlaces: [] },
+          ]
+        },
+      ]
+    },
+    {
+      id: 7,
+      title: '月球',
+      childPlaces: [
+        { id: 8, title: '第谷环形山', childPlaces: [] },
+      ]
+    }
+  ]
+};
+~~~
+* 假设你想添加一个按钮来删除一个你已经去过的地方，更新嵌套的 state 需要从更改部分**一直向上复制对象**。删除一个深度嵌套的地点将涉及**复制其整个父级地点链**。
+* 这样的代码可能**非常冗长**。
+
+如果 state 嵌套太深，难以轻松更新，可以**考虑将其“扁平化”**
+* 不同于树状结构，每个节点的 place 都是一个包含 **其子节点** 的数组
+* 你可以让每个节点的 place 作为数组保存 **其子节点的 ID**
+* 然后存储一个节点 ID 与相应节点的**映射关系**
+~~~tsx
+export const initialTravelPlan = {
+    0: {
+        id: 0,
+        title: '(Root)',
+        childId: [1, 7],
+    },
+    1: {
+        id: 1,
+        title: '地球',
+        childId: [2, 5],
+    },
+    2: {
+        id: 2,
+        title: '亚洲',
+        childId: [3, 4],
+    },
+    3: {
+        id: 3,
+        title: '中国',
+        childId: [],
+    },
+    4: {
+        id: 4,
+        title: '新加坡',
+        childId: [],
+    },
+    5: {
+        id: 5,
+        title: '欧洲',
+        childId: [6],
+    },
+    6: {
+        id: 6,
+        title: '法国',
+        childId: [],
+    },
+    7: {
+        id: 7,
+        title: '月球',
+        childId: [8],
+    },
+    8: {
+        id: 8,
+        title: '第谷环形山',
+        childId: [],
+    },
+};
+~~~
+**现在 state 已经“扁平化”（也称为“规范化”）**，更新嵌套项会变得更加容易。
+
+通过递归树，我们可以通过映射关系找到所有结点以及其子集：
+~~~tsx
+import type { PlaceTreeProps } from "./flattening_types";
+
+/**
+ * 这个组件的逻辑可以拆解为三步：
+ * 1. 查字典：根据传入的 id，去大对象 placesById 中找到对应的数据。
+ * 2. 渲染自己：显示标题和“去过了”按钮。
+ * 3. 递归子级：如果有 childIds，就循环它们，再次调用 FlatteningPlaceTree。
+ */
+export default function FlatteningPlaceTree({
+    id,
+    parentId,
+    placesById, // 这是存储所有地点的“大字典”
+    onComplete
+}: PlaceTreeProps) { 
+    // 第一步：查找当前节点数据
+    const place = placesById[id];
+    
+    // 防御性编程：万一 ID 不存在，直接返回 null 避免报错
+    if (!place) return null;
+
+    const childIds = place.childIds;
+
+    return (
+        <li style={{ marginBottom: '8px' }}>
+            {/* 显示当前地点名称 */}
+            {place.title}
+            
+            {/* 点击按钮时，告诉父级：请把我的 ID 从我父节点的 childIds 列表中移除 */}
+            <button 
+                style={{ marginLeft: '10px' }}
+                onClick={() => onComplete(parentId, id)}
+            >
+                去过了
+            </button>
+
+            {/* 第三步：递归逻辑 */}
+            {childIds.length > 0 && (
+                <ol>
+                    {childIds.map(childId => (
+                        <FlatteningPlaceTree
+                            key={childId}
+                            id={childId}
+                            parentId={place.id} // 对子级来说，我(place.id)就是它们的父级
+                            placesById={placesById} // 继续向下传递大字典
+                            onComplete={onComplete} // 继续向下传递回调函数
+                        />
+                    ))}
+                </ol>
+            )}
+        </li>
+    );
+}
+~~~
+再通过主容器完成删除的逻辑：
+~~~tsx
+import { useState } from "react";
+import { initialTravelPlan } from "./flattening_places";
+import FlatteningPlaceTree from "./FlatteningPlaceTree";
+import type { Plan } from "./flattening_types";
+
+/**
+ * 这是管理状态的“大脑”组件。
+ * 扁平化结构让更新操作变得极其简单：
+ * 你不需要去树的深处寻找 parent，只需要知道 parentId 就能直接在 state 中修改它。
+ */
+export default function FlatteningTravelPlan() {
+    // 将整个大字典存入 state
+    const [plan, setPlan] = useState<Plan>(initialTravelPlan);
+
+    /**
+     * 处理“完成”逻辑
+     * @param parentId 触发点击的节点的父 ID
+     * @param childId 触发点击的节点本身的 ID
+     */
+    function handleComplete(parentId: number, childId: number) {
+        // 1. 直接从字典里取出父级对象
+        const parent = plan[parentId];
+
+        // 2. 创建父级的新副本，把那个“去过了”的 ID 过滤掉
+        const nextParent = {
+            ...parent,
+            childIds: parent.childIds.filter(id => id !== childId)
+        };
+
+        // 3. 更新 state
+        setPlan({
+            ...plan,          // 展开原有的字典
+            [parentId]: nextParent // 覆盖被修改的父级项
+        });
+    }
+
+    // 找到入口点：ID 为 0 的根节点
+    const root = plan[0];
+
+    return (
+        <div style={{ padding: '20px' }}>
+            <h1>旅游计划（扁平化逻辑演示）</h1>
+            <ol>
+                {/* 从根节点的子 ID 开始第一层递归渲染 */}
+                {root.childIds.map(id => (
+                    <FlatteningPlaceTree
+                        key={id}
+                        id={id}
+                        parentId={0} // 根节点的 ID 是 0
+                        placesById={plan}
+                        onComplete={handleComplete}
+                    />
+                ))}
+            </ol>
+        </div>
+    );
+}
+~~~
+* 值得注意的是，这里的删除仅仅是 **软删除** ，即只是删除了父元素与子元素之间的映射关系，没有真正在内存中删除这些元素
+* 使用 useImmer 可以实现更简洁的真正删除：
 
 
+~~~tsx
+import { useState } from "react";
+import { initialTravelPlan } from "./flattening_places";
+import FlatteningPlaceTree from "./FlatteningPlaceTree";
+import type { Plan } from "./flattening_types";
+import { useImmer } from "use-immer";
+
+/**
+ * 这是管理状态的“大脑”组件。
+ * 扁平化结构让更新操作变得极其简单：
+ * 你不需要去树的深处寻找 parent，只需要知道 parentId 就能直接在 state 中修改它。
+ */
+export default function FlatteningTravelPlan() {
+    // 将整个大字典存入 state
+    const [plan, updatePlan] = useImmer<Plan>(initialTravelPlan);
+
+    /**
+     * 处理“完成”逻辑
+     * @param parentId 触发点击的节点的父 ID
+     * @param childId 触发点击的节点本身的 ID
+     */
+    function handleComplete(parentId: number, childId: number) {
+        updatePlan(draft => {
+            // 1. 逻辑删除：断开父子之间的 ID 引用
+            const parent = draft[parentId];
+            parent.childIds = parent.childIds.filter(id => id !== childId);
+
+            // 2. 物理删除：定义一个递归函数，从字典中彻底抹除该节点及其所有后代
+            function deleteAllChildren(id: number) {
+                const place = draft[id];
+                // 先处理它的子节点（顺藤摸瓜）
+                place.childIds.forEach(deleteAllChildren);
+                // 最后把自己从大字典中删除（物理清理）
+                delete draft[id];
+            }
+
+            // 执行清理
+            deleteAllChildren(childId);
+        })
+    }
+
+    // 找到入口点：ID 为 0 的根节点
+    const root = plan[0];
+
+    return (
+        <div style={{ padding: '20px' }}>
+            <h1>旅游计划（扁平化逻辑演示）</h1>
+            <ol>
+                {/* 从根节点的子 ID 开始第一层递归渲染 */}
+                {root.childIds.map(id => (
+                    <FlatteningPlaceTree
+                        key={id}
+                        id={id}
+                        parentId={0} // 根节点的 ID 是 0
+                        placesById={plan}
+                        onComplete={handleComplete}
+                    />
+                ))}
+            </ol>
+        </div>
+    );
+}
+~~~
 
 
 

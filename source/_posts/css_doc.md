@@ -59,6 +59,35 @@ categories:
     - [CSS 尽力减少“数据损失”](#css-尽力减少数据损失)
     - [控制溢出的内容](#控制溢出的内容)
       - [overflow属性](#overflow属性)
+  - [图像 媒体和表单元素](#图像-媒体和表单元素)
+    - [调整图像的大小](#调整图像的大小)
+    - [布局中的替换元素](#布局中的替换元素)
+    - [表单元素](#表单元素)
+      - [样式化文本输入元素](#样式化文本输入元素)
+      - [继承和表单元素](#继承和表单元素)
+  - [样式化表格](#样式化表格)
+    - [容器层](#容器层)
+    - [结构与布局层](#结构与布局层)
+    - [组件与排版层](#组件与排版层)
+    - [状态与交互层](#状态与交互层)
+    - [微观与修饰层](#微观与修饰层)
+  - [高级区块效果](#高级区块效果)
+    - [盒子阴影](#盒子阴影)
+    - [Filter 滤镜](#filter-滤镜)
+    - [Blend Modes 混合模式](#blend-modes-混合模式)
+  - [处理不同方向的文本](#处理不同方向的文本)
+    - [书写模式](#书写模式)
+  - [基本文本和字体样式](#基本文本和字体样式)
+    - [字体](#字体)
+    - [文本布局](#文本布局)
+  - [列表样式](#列表样式)
+    - [管理列表计数](#管理列表计数)
+  - [样式化链接](#样式化链接)
+    - [链接状态](#链接状态)
+    - [可改变的链接样式](#可改变的链接样式)
+  - [浮动](#浮动)
+    - [浮动的重要特性](#浮动的重要特性)
+    - [清除浮动](#清除浮动)
 
 
 ## 盒子模型
@@ -616,6 +645,439 @@ overflow 的值有：
 * **overflow-x**
 * **overflow-y**
 * 值得注意的是，其中一个使用了 scroll 属性后，如果另一个设置为 visible ，那么两个都会被展示为 scroll 
+
+## 图像 媒体和表单元素
+[回到目录](#目录)
+在 Web 开发中，**可替换元素**（replaced element）是指其内容由外部资源或文档结构外部定义的内容替换的 HTML 元素，并且在 CSS 渲染模型中不被视为常规内容。
+图像和视频被描述为**可替换元素**。这意味着 CSS 不能影响它们的内部布局——而仅影响它们在页面上相对于其他元素的位置。
+
+### 调整图像的大小
+[回到上一级](#图像-媒体和表单元素)
+
+如果你把一张图片放在一个盒子里，而这张图片的原始长和宽比盒子的小或大，那么这张图**要么缩在盒子里，要么就从盒子里面溢出**。你需要决定**如何处理这样的溢出**。
+1. 一个常用的方法是**将一张图片的 max-width 设为 100%**。这将会使图片的尺寸小于等于盒子。这个技术也会对其他替换元素，例如 `<video>`，或者 `<iframe>`起作用。
+2. 你也可以使用 `object-fit` 属性，这个属性**控制如何将替换元素填充到其容器中**，以下是其取值
+   * **contain**：保持宽高比填充，可能**添加黑边以显示整个图像**。
+   * **cover**：保持宽高比填充，可能被**裁切以填充整个容器**。
+   * **fill**：**拉伸以填充整个容器**，同时显示所有内容。
+   * **none**：被替换的内容**将保持其原有的尺寸**。
+   * **scale-down**：内容的尺寸与 none 或 contain 中的一个相同，取决于它们两个之间谁得到的对象尺寸会更小一些。
+
+### 布局中的替换元素
+[回到上一级](#图像-媒体和表单元素)
+
+在对替换元素使用各种 CSS 布局时，你可能会发现他们的**表现方式与其他元素有一些细节上的差异**
+替换元素在成为网格或者弹性布局的一部分时，有不同的默认行为就好了。这一默认行为很有必要，因为它**避免了替换元素被布局拉伸成奇怪的样子**。
+
+### 表单元素
+[回到上一级](#图像-媒体和表单元素)
+
+#### 样式化文本输入元素
+[回到上一级](#表单元素)
+
+1. **基础重置与模型**
+   1. `box-sizing: border-box;`：确保 padding 不会撑大输入框的宽度
+   2. 添加边框、边框圆角和背景颜色
+   3. `transition: all 0.3s ease;`：交互过渡
+   4. 重置默认样式
+      1. `appearance: none;`：移除默认ui渲染
+      2. `outline: none;`：移除默认的黑色或蓝色聚焦边框
+      3. `-webkit-appearance: none;`：移除浏览器默认的样式
+   5. `overflow: auto;`：允许内容溢出容器，只有在溢出时才显示滚动条
+2. **交互状态**
+   1. 聚焦状态
+      1. `border-color: #3b82f6;`：改变边框颜色
+      2. `box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);`：添加阴影
+   2. 悬停状态
+      1. `border: 3px solid #9ca3af;`：加粗边框、加深边框颜色
+   3. 禁用状态
+      1. `background-color: #f3f4f6;`：改变背景颜色
+      2. `cursor: not-allowed;`：禁用鼠标
+      3. `opacity: 0.5;`：改变透明度
+3. **控制伪元素**
+   1. 占位符(::placeholder)
+      1. `color: #9ca3af;`：改变颜色
+      2. `font-style: italic;`：改变样式
+   2. 光标颜色
+      1. `caret-color: #3b82f6;`：改变光标闪烁时的颜色
+4. **验证状态**
+   1. `:invalid`: 输入格式错误
+   2. `:not(:placeholder-shown)`: 输入框有内容时触发
+   3. 可以改变背景颜色和在输入框右侧使用background-image添加错误图标
+
+#### 继承和表单元素
+[回到上一级](#表单元素)
+推荐在同一个表单中，在父元素中定义字体等属性，并在表单元素使用`inherit`中继承这些属性。
+
+## 样式化表格
+[回到目录](#目录)
+
+### 容器层
+[回到上一级](#样式化表格)
+`<table>`标签很难做直角，需要在外面再套一层 `<div>`，通过这一层容器样式化表格的边界：
+* **border-radius: 12px;**：设置表格的圆角
+* **box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);**：添加悬浮阴影
+* **overflow: hidden;**：切断表格溢出的直角
+* **border: 1px solid #e5e7eb;**：极细的外边框
+* **margin: 20px auto;**：居中布局
+
+### 结构与布局层
+[回到上一级](#样式化表格)
+
+对于`<table>`标签
+~~~css
+table {
+  width: 100%;
+  border-collapse: collapse; /* 必须合并边框，现代 UI 基础 */
+  border-spacing: 0;
+}
+~~~
+
+对于表头`<th>`和表格`<td>`标签
+~~~css
+th, td {
+  padding: 16px 20px;       /* 充裕的内边距，不要让字贴着线 */
+  line-height: 1.5;
+}
+~~~
+
+### 组件与排版层
+[回到上一级](#样式化表格)
+这是最关键的一层。通过字体和颜色，区分**表头、行维度（地区）、数值**
+
+~~~css
+/* 3. 组件层：定义长相 */
+
+/* A. 基础文字设置 */
+table {
+  font-family: -apple-system, sans-serif;
+  color: #1f2937;           /* 深灰主色 */
+  font-size: 14px;
+}
+
+/* B. 表头区域 (Thead) */
+thead {
+  background-color: #f9fafb; /* 浅灰底色 */
+  border-bottom: 2px solid #e5e7eb; /* 加深分割线 */
+}
+
+thead th {
+  text-transform: uppercase; /* 大写，增加标题感 */
+  font-size: 12px;           /* 字号稍小 */
+  letter-spacing: 0.05em;    /* 增加字距 */
+  font-weight: 600;
+  color: #6b7280;            /* 浅灰色文字 */
+}
+
+/* 针对 "Clothes" 这种跨列的大标题 */
+thead th[colspan] {
+  color: #4f46e5;            /* 品牌色高亮 */
+  border-bottom: 1px solid #e5e7eb; /* 内部小分割线 */
+  text-align: center;
+}
+
+/* 针对 "Total" 列的特殊处理 */
+thead #total, 
+td[headers*="total"] {      /* 选中所有包含 total 属性的单元格 */
+  background-color: #f3f4f6; /* 让总计列背景稍微深一点 */
+  font-weight: 600;
+}
+
+/* C. 左侧维度列 (Row Headers) */
+/* Belgium (跨行的大维度) */
+tbody th[rowspan] {
+  background-color: #fff;
+  vertical-align: middle;    /* 核心：跨行必须垂直居中 */
+  border-right: 1px solid #e5e7eb; /*右侧分割线 */
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Antwerp/Ghent (子维度) */
+tbody th:not([rowspan]) {
+  text-align: left;
+  padding-left: 30px;        /* 缩进，体现层级关系 */
+  color: #4b5563;
+  font-weight: normal;
+}
+
+/* D. 数据单元格 */
+td {
+  text-align: right;         /* 财务铁律：数字右对齐 */
+  font-variant-numeric: tabular-nums; /* 数字等宽，方便对比 */
+}
+~~~
+
+### 状态与交互层
+[回到上一级](#样式化表格)
+当用户视线扫过长表格时，提供定位辅助
+
+~~~css
+/* 4. 状态层：提供反馈 */
+tbody tr:hover {
+  background-color: #f9fafb; /* 鼠标悬停高亮当前行 */
+}
+
+/* 修正：因为 Belgium 跨行了，为了视觉统一，可以让它保持白色或单独处理 */
+tbody th[rowspan]:hover {
+  background-color: #fff;
+}
+~~~
+
+### 微观与修饰层
+[回到上一级](#样式化表格)
+
+~~~css
+/* 5. 微观层：精致细节 */
+
+/* 页脚统计行 */
+tfoot {
+  border-top: 2px solid #e5e7eb; /* 顶部双实线或加粗 */
+  background-color: #f9fafb;
+}
+
+tfoot th {
+  text-align: right; /* "Total" 文字靠右，紧贴数字 */
+  font-weight: 800;
+  font-size: 14px;
+}
+
+tfoot td {
+  font-weight: 700;
+  color: #4f46e5;    /* 最终汇总数字使用品牌色 */
+}
+
+/* 边框细节处理：让线条更柔和 */
+td, th {
+  border-bottom: 1px solid #f3f4f6; /* 极淡的内部横线 */
+}
+tbody tr:last-child td {
+  border-bottom: none; /* 去掉最后一行数据的底线，防止和 tfoot 重叠 */
+}
+~~~
+
+## 高级区块效果
+[回到目录](#目录)
+
+### 盒子阴影
+[回到上一级](#高级区块效果)
+
+box-shadow 属性用于在元素的框架上添加阴影效果
+
+该属性可设置的值包括阴影的 X 轴偏移量、Y 轴偏移量、模糊半径、扩散半径和颜色
+
+语法：
+`box-shadow: [inset] <offset-x> <offset-y> [<blur-radius>] [<spread-radius>] [<color>];`
+* **inset**：[可选]，创建一个内阴影，不写时，创建一个外阴影
+* **offset-x**：[必选]，阴影的 X 轴偏移量，正数向右，负数向左
+* **offset-y**：[必选]，阴影的 Y 轴偏移量，正数向下，负数向上
+* **blur-radius**：[可选]，阴影的模糊半径，值越大，阴影越模糊
+* **spread-radius**：[可选]，阴影的扩散半径，值越大，阴影越扩散
+* **color**：[可选]，阴影的颜色
+
+当给出两个、三个或四个 `<length>`值时。
+* 如果只给出两个值，那么这两个值将会被当作 `<offset-x>` `<offset-y>` 来解释。
+* 如果给出了第三个值，那么第三个值将会被当作`<blur-radius>`解释。
+* 如果给出了第四个值，那么第四个值将会被当作`<spread-radius>`来解释。
+
+可以添加多个阴影，用逗号隔开
+
+示例：
+~~~css
+box-shadow:
+    inset 0 -3em 3em rgba(0, 0, 0, 0.1),
+    0 0 0 2px rgb(255, 255, 255),
+    0.3em 0.3em 1em rgba(0, 0, 0, 0.3);
+~~~
+
+### Filter 滤镜
+[回到上一级](#高级区块效果)
+
+filter 属性将模糊或颜色偏移等**图形效果应用于元素**。滤镜通常用于调整图像、背景和边框的渲染
+
+filter 属性可设置为 none 或下面列出的**一个或多个函数**：
+
+|函数|描述|参数与单位|示例|
+| --- | --- | --- | --- |
+|**blur()**|高斯模糊。|**长度值 (px, em, rem)**。默认值为 0。值越大越模糊。不接受百分比。|blur(5px)|
+|**drop-shadow()**|投影。在图像本身的内容周围应用阴影。|**Offset-x Offset-y Blur Color**。类似于 box-shadow，但它是基于图像的非透明部分（轮廓）生成阴影，而不是矩形盒子。|drop-shadow(4px 4px 10px gray)|
+|**brightness()**|亮度。调整图像的明亮程度。|**数值或百分比**。1 或 100% 是原始亮度。0% 是全黑。超过 100% 会让图像曝光过度。|brightness(1.5) (亮度增加50%)|
+|**contrast()**|对比度。调整明暗之间的差异。|**数值或百分比**。1 或 100% 是原始对比度。0% 是全灰。超过 100% 会增加对比度。|contrast(200%)|
+|**opacity()**|透明度。|**数值或百分比**。0% 完全透明，100% 完全不透明。类似于 opacity 属性，但作为滤镜有些浏览器可能会开启硬件加速。|opacity(0.5)|
+|**grayscale()**|灰度。将图像转换为黑白。|**数值或百分比**。0% 无变化。100% 完全灰度（黑白照效果）。|grayscale(100%)|
+|**sepia()**|褐色/怀旧。将图像转换为深褐色调（老照片风格）。|**数值或百分比**。0% 无变化。100% 完全褐色。|sepia(80%)|
+|**saturate()**|饱和度。颜色的鲜艳程度。|**数值或百分比**。100% 是原始状态。0% 会变成灰度（无色）。超过 100% 颜色会非常鲜艳刺眼。|saturate(2) (饱和度翻倍)|
+|**hue-rotate()**|色相旋转。在色轮上旋转所有颜色。|**角度 (deg, rad)**。0deg 无变化。180deg 会变成互补色（反色）。360deg 转回原点。|hue-rotate(90deg)|
+|**invert()**|反转。反转颜色（底片效果）。|**数值或百分比**。0% 无变化。100% 完全反转颜色。|invert(100%)|
+
+组合函数使用空格隔开使用：
+~~~css
+filter: grayscale(0.4) blur(5px);
+~~~
+
+### Blend Modes 混合模式
+[回到上一级](#高级区块效果)
+CSS 混合模式允许我们为元素添加一个混合模式，以当两个元素重叠时，指定一个混合的效果——**最终每个像素所展示的颜色将会是原来像素中颜色和其下面一层相组合之后的结果**
+
+语法：
+* `background-blend-mode: <mode1> <mode2> <mode3> ...;`：背景层内部混合
+* `mix-blend-mode: <mode1> <mode2> <mode3> ...;`：元素与环境混合
+
+模式modes：
+* 基础模式：
+  * normal：不进行混合
+* 变暗组：
+  * multiply: 正片叠底
+  * darken: 变暗
+  * color-burn: 颜色加深
+* 变亮组：
+  * screen: 滤色
+  * lighten: 变亮
+  * color-dodge: 颜色减淡
+* 对比度组：
+  * overlay: 叠加
+  * soft-light: 柔光
+  * hard-light: 强光
+* 差值/反相组：
+  * difference: 差值
+  * exclusion: 排除
+* 色彩组件组：
+  * hue: 色调
+  * saturation: 饱和度
+  * color: 颜色
+  * luminosity: 亮度
+
+## 处理不同方向的文本
+[回到目录](#目录)
+
+### 书写模式
+[回到上一级](#处理不同方向的文本)
+
+`writing-mode` 属性使我们从一种模式切换到另一种模式
+
+writing-mode 属性的三种可能的值分别是：
+* `horizontal-tb`: top to bottom。区块流向从上至下。对应的文本方向是**横向的**。
+* `vertical-rl`: right to left。区块流向从右向左。对应的文本方向是**纵向的**。
+* `vertical-lr`: left to right。区块流向从左向右。对应的文本方向是**纵向的**。
+
+当我们切换书写模式时，我们也在改变哪里显示为块级，哪里显示为行级
+* 当书写模式为横向 horizontal-tb 时：
+![horizontal-tb](../assert/css_doc/horizontal_block.png)
+
+* 当书写模式为纵向 vertical-rl 时：
+![vertical-rl](../assert/css_doc/vertical_block.png)
+
+切换书写模式时，物理属性不会改变，而逻辑属性会改变，这是因为**物理属性和逻辑属性有映射关系**
+
+详细映射关系请参考[映射表](https://developer.mozilla.org/zh-CN/docs/Web/CSS/Guides/Logical_properties_and_values)
+
+## 基本文本和字体样式
+[回到目录](#目录)
+
+### 字体
+[回到上一级](#基本文本和字体样式)
+
+|属性|描述|参数值|
+| --- | --- | --- |
+|color|文本颜色|颜色值|
+|font-family|字体种类|一个字体 (或者一个字体的列表)|
+|font-size|字体大小|长度值 (px, em, rem) 或关键字 (xx-small, x-small, small, medium, large, x-large, xx-large, larger, smaller)|
+|font-style|字体样式|normal普通字体 或 italic斜体 或 oblique模拟斜体|
+|font-weight|字体粗细|normal普通字体 或 bold粗体 或 bolder更粗的字体 或 lighter更细的字体 或 100-900数字值|
+|text-transform|文本转换|none无转换 或 capitalize每个单词首字母大写 或 uppercase所有字母大写 或 lowercase所有字母小写 或 full-width全宽|
+|text-decoration|文本修饰|none无修饰 或 underline下划线 或 overline上划线 或 line-through删除线|
+|text-shadow|文本阴影|阴影值|
+
+### 文本布局
+[回到上一级](#基本文本和字体样式)
+
+|属性|描述|参数值|
+| --- | --- | --- |
+|text-align|文本对齐|**left左对齐** 或 **right右对齐** 或 **center居中对**齐 或 **justify两端对齐**|
+|line-height|行高|长度值 (px, em, rem) 或数字值(表示数字的倍数)|
+|letter-spacing|字符间距|长度值 (px, em, rem)|
+|word-spacing|单词间距|长度值 (px, em, rem)|
+
+## 列表样式
+[回到目录](#目录)
+
+* list-style-type：设置用于**列表的项目符号的类型**，例如无序列表的方形或圆形项目符号，或有序列表的数字、字母或罗马数字
+* list-style-position：设置在每个项目开始之前，项目符号是出现在列表项内，还是出现在其外。
+* list-style-image：**允许为项目符号使用自定义图片**，而不是简单的方形或圆形。
+* 上述提到的三种属性可以用一个单独的简写属性 list-style 来设置。
+
+### 管理列表计数
+[回到上一级](#列表样式)
+
+* start 属性允许你从 1 以外的数字开始计数
+* reversed 属性将使列表反向计数
+* value 属性允许设置列表项指定数值
+
+## 样式化链接
+[回到目录](#目录)
+
+### 链接状态
+[回到上一级](#样式化链接)
+
+* link：未访问的链接
+* visited：访问过的链接
+* hover：鼠标悬停在链接上
+* active：点击的链接
+* focus：获得焦点的链接
+
+### 可改变的链接样式
+[回到上一级](#样式化链接)
+
+* color: 链接颜色
+* cursor: 鼠标样式
+* outline: 链接外边框
+* background: 可以插入图片url() 并且通过百分值设置位置
+
+## 浮动
+[回到目录](#目录)
+
+float 属性用于定义元素在哪个方向浮动。**设置了浮动的元素会脱离文档的普通流（Normal Flow）**，移动到其父元素的左侧或右侧，直到碰到父元素的边缘或其他浮动元素。
+
+在现代网页样式中，更多地使用 flexbox 和 grid 而不是 float 来布局
+
+常用属性值：
+* left：元素向左浮动。
+* right：元素向右浮动。
+* none（默认）：元素不浮动。
+
+### 浮动的重要特性
+[回到上一级](#浮动)
+
+1. **脱离文档流，但不完全脱离**： 与 position: absolute 不同，浮动元素虽然不占据原来的位置，但文字和行内元素会环绕着它。这就是它最初设计的初衷——实现报纸般的文字环绕效果。
+
+2. **块级化**： 设置了浮动的元素（无论是 `<span>` 还是 `<div>`）都会自动变成类似于 display: inline-block 的块级框，可以设置宽度、高度、外边距和内边距。
+
+3. **高度塌陷（最常见的问题）**： 如果**父元素内部的所有子元素都设置了浮动**，由于它们脱离了普通流，父元素会感知不到子元素的高度，从而导致父元素高度变为 0。这会破坏后续页面的布局。
+
+### 清除浮动
+[回到上一级](#浮动)
+为了解决高度塌陷问题，我们需要清楚浮动。
+1. **使用 clear 属性**
+在浮动元素下方添加一个空标签，设置 clear: both;。
+2. **BFC 方案（推荐）**
+给父元素开启 BFC（块级格式化上下文）。最简单的方法是设置 overflow: hidden;。
+3. **伪元素清除法（工程实践最常用）**
+利用 CSS 伪元素在父元素末尾生成一个看不见的块。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
